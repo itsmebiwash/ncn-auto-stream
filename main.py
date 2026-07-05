@@ -211,7 +211,8 @@ def rewrite_to_template_rules(title, full_story):
     output = generate_with_gemini(prompt)
     if output: return output
     
-    return "RED_BOX_1: All AI Engines Failed\nRED_BOX_2: API Error\nHEADLINE: Could not generate content because all 3 APIs returned an error.\nCAPTION: We are currently experiencing technical difficulties processing the news content. Stay tuned for updates!\nIMAGE_INTENT: PEXELS"
+    print("    [!] All 3 AI APIs failed. This article will be skipped.")
+    return None
 
 def parse_ai_output(output):
     box1 = "BREAKING NEWS"
@@ -474,15 +475,15 @@ def scrape_news():
                 print(f"    [AI Rewriting] Processing context & translating...")
                 ai_ready_content = rewrite_to_template_rules(title_text, full_story_text)
                 
+                # Skip if AI returned None (all engines failed) or SKIP signal
+                if not ai_ready_content:
+                    print(f"    [Skip] All AI engines failed. Skipping this article.")
+                    continue
                 if ai_ready_content.strip() == "SKIP":
                     print(f"    [AI Skip] AI determined this is gibberish or non-news: {title_text[:30]}...")
                     continue
                     
-                headline, body, highlight, caption, intent = parse_ai_output(ai_ready_content)
-                
-                if "All AI Engines Failed" in headline:
-                    print("    [!] All AI engines failed. Skipping graphic generation.")
-                    continue
+                headline, box1, box2, caption, intent = parse_ai_output(ai_ready_content)
                     
                 articles_found += 1
                 scraped_history.add(title_text)
@@ -490,9 +491,11 @@ def scrape_news():
                 print(f"    [Image Sourcing] Intent: {intent}")
                 bg_img_final = None
                 
+                # Use box1 text as Pexels search keyword
+                pexels_keyword = box1
                 if intent == "PEXELS":
                     print("    [Image Sourcing] Attempting Pexels API...")
-                    bg_img_final = get_pexels_image(highlight)
+                    bg_img_final = get_pexels_image(pexels_keyword)
                     if not bg_img_final and bg_img:
                         print("    [Image Sourcing] Pexels failed. Falling back to Article Image.")
                         bg_img_final = bg_img
@@ -501,13 +504,13 @@ def scrape_news():
                     bg_img_final = bg_img
                     if not bg_img_final:
                         print("    [Image Sourcing] Article image missing. Falling back to Pexels...")
-                        bg_img_final = get_pexels_image(highlight)
+                        bg_img_final = get_pexels_image(pexels_keyword)
                         
                 if not bg_img_final:
                     bg_img_final = "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=1080&h=1350&fit=crop"
                 
                 print("    [HTML Canvas Rendered] Compiling layout...")
-                html_code = generate_html_card(headline, body, highlight, bg_img_final)
+                html_code = generate_html_card(headline, box1, box2, bg_img_final)
                 
                 safe_headline = re.sub(r'[^a-zA-Z0-9]', '_', headline)
                 safe_headline = re.sub(r'_+', '_', safe_headline).strip('_')
