@@ -136,14 +136,24 @@ def get_pexels_image(keyword):
         pass
     return None
 
+# Handle multiple Gemini Keys (API Rotation)
+GEMINI_API_KEYS_RAW = os.environ.get("GEMINI_API_KEYS", "")
+GEMINI_API_KEYS = [k.strip() for k in GEMINI_API_KEYS_RAW.split(",") if k.strip()]
+
 def generate_with_gemini(prompt):
-    if not GEMINI_API_KEY: return None
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
-    try:
-        res = requests.post(url, headers={'Content-Type': 'application/json'}, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=10)
-        if res.status_code == 200:
-            return res.json()['contents'][0]['parts'][0]['text'].strip()
-    except Exception: pass
+    if not GEMINI_API_KEYS: return None
+    
+    for key in GEMINI_API_KEYS:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={key}"
+        try:
+            res = requests.post(url, headers={'Content-Type': 'application/json'}, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=10)
+            if res.status_code == 200:
+                return res.json()['contents'][0]['parts'][0]['text'].strip()
+            else:
+                print(f"    [Gemini] Key {key[:6]}... returned {res.status_code}. Trying next key...")
+        except Exception:
+            pass
+            
     return None
 
 def generate_with_groq(prompt):
@@ -408,11 +418,10 @@ def scrape_news():
         os.makedirs(OUTPUT_DIR)
     if not os.path.exists(POSTED_DIR):
         os.makedirs(POSTED_DIR)
-        
-    hti = Html2Image(size=(1080, 1350))
+    hti = Html2Image(size=(1080, 1350), browser_executable='google-chrome')
     hti.output_path = OUTPUT_DIR
-    
-    max_articles_per_site = 5 
+    hti.browser.flags = ['--no-sandbox', '--disable-setuid-sandbox', '--allow-file-access-from-files']
+    max_articles_per_site = 5
     
     print(f"[+] Automated Facebook DevOps Scraper Started...")
     
