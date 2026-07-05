@@ -184,10 +184,10 @@ def rewrite_to_template_rules(title, full_story):
     If the text is gibberish, nonsensical (e.g., 'drone war torn thread' with no context), or not a real news article, output exactly: SKIP
     
     STRICT RULES:
-    1. HEADLINE: Journalistic, professional, Title Case, strictly 6 to 9 words MAXIMUM.
-    2. BODY: Core summary in EXACTLY ONE single sentence, strictly 22 to 25 words MAXIMUM. No bullets, no multiple periods. Write like a serious news anchor.
-    3. HIGHLIGHT: Exactly one critical keyword from the BODY text to color-code.
-    4. CAPTION: A separate, highly professional news brief for Facebook, strictly between 40 to 50 words. NO EMOJIS. MUST read like an actual news report.
+    1. RED_BOX_1: A short, punchy, high-impact phrase summarizing the core subject (Strictly 4-7 words).
+    2. RED_BOX_2: A secondary punchy phrase complementing the first (Strictly 2-5 words). Example: 'During National Crises'.
+    3. HEADLINE: The full, detailed headline summarizing the news clearly and professionally (10-25 words).
+    4. CAPTION: A comprehensive, highly professional news report for Facebook, consisting of 3 to 4 detailed paragraphs (approx 150-200 words). NO EMOJIS. MUST read like a high-quality journalistic article.
     5. IMAGE INTENT: If the news is about generic objects (bus, car, money, buildings, nature, abstract concepts), output 'PEXELS'. ONLY output 'ARTICLE' if the news focuses on a highly specific named person (e.g. a politician) or exact local event where a generic photo makes no sense.
     
     Original News Title: {title}
@@ -197,10 +197,10 @@ def rewrite_to_template_rules(title, full_story):
     ---
     
     Output Format (Strictly return ONLY these 5 lines, or SKIP):
-    HEADLINE: [Insert headline here]
-    BODY: [Insert single sentence here]
-    HIGHLIGHT: [Insert the single keyword here]
-    CAPTION: [Insert 40-50 word caption here]
+    RED_BOX_1: [Insert short phrase here]
+    RED_BOX_2: [Insert very short phrase here]
+    HEADLINE: [Insert full headline here]
+    CAPTION: [Insert 150-200 word caption here]
     IMAGE_INTENT: [ARTICLE or PEXELS]
     """
     
@@ -211,146 +211,150 @@ def rewrite_to_template_rules(title, full_story):
     output = generate_with_gemini(prompt)
     if output: return output
     
-    return "HEADLINE: All AI Engines Failed\nBODY: Could not generate content because all 3 APIs returned an error.\nHIGHLIGHT: None\nCAPTION: We are currently experiencing technical difficulties processing the news content. Stay tuned for updates!\nIMAGE_INTENT: PEXELS"
+    return "RED_BOX_1: All AI Engines Failed\nRED_BOX_2: API Error\nHEADLINE: Could not generate content because all 3 APIs returned an error.\nCAPTION: We are currently experiencing technical difficulties processing the news content. Stay tuned for updates!\nIMAGE_INTENT: PEXELS"
 
 def parse_ai_output(output):
+    box1 = "BREAKING NEWS"
+    box2 = "UPDATE"
     headline = "News Headline"
-    body = "News body text goes here."
-    highlight = ""
-    caption = ""
+    caption = "News body text goes here."
     intent = "PEXELS"
     for line in output.split('\n'):
-        if line.startswith('HEADLINE:'): headline = line.replace('HEADLINE:', '').strip()
-        elif line.startswith('BODY:'): body = line.replace('BODY:', '').strip()
-        elif line.startswith('HIGHLIGHT:'): highlight = line.replace('HIGHLIGHT:', '').strip()
+        if line.startswith('RED_BOX_1:'): box1 = line.replace('RED_BOX_1:', '').strip()
+        elif line.startswith('RED_BOX_2:'): box2 = line.replace('RED_BOX_2:', '').strip()
+        elif line.startswith('HEADLINE:'): headline = line.replace('HEADLINE:', '').strip()
         elif line.startswith('CAPTION:'): caption = line.replace('CAPTION:', '').strip()
         elif line.startswith('IMAGE_INTENT:'): intent = line.replace('IMAGE_INTENT:', '').strip().upper()
-    return headline, body, highlight, caption, intent
+    return headline, box1, box2, caption, intent
 
-def generate_html_card(headline, body, highlight, bg_image_url):
-    if highlight and highlight.lower() != "none":
-        pattern = re.compile(re.escape(highlight), re.IGNORECASE)
-        body = pattern.sub(lambda m: f"<span class='highlight'>{m.group(0)}</span>", body)
-        
+def generate_html_card(headline, box1, box2, bg_image_url):
     html_content = f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700;800&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;600;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
         <style>
             * {{ box-sizing: border-box; margin: 0; padding: 0; }}
             body {{
                 width: 1080px;
                 height: 1350px;
-                font-family: 'Poppins', sans-serif;
-                background-image: url('{bg_image_url}');
-                background-size: cover;
-                background-position: center 20%;
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                background-color: #f2f2f7;
                 display: flex;
                 flex-direction: column;
-                justify-content: flex-end;
-                color: #ffffff;
                 position: relative;
                 overflow: hidden;
             }}
-            .overlay {{
+            .image-section {{
                 position: absolute;
                 top: 0;
                 left: 0;
                 width: 100%;
-                height: 100%;
-                background: linear-gradient(180deg, rgba(0, 30, 80, 0.1) 0%, rgba(0, 20, 60, 0.6) 40%, rgba(0, 10, 40, 0.95) 100%);
+                height: 75%;
+                background-image: url('{bg_image_url}');
+                background-size: cover;
+                background-position: center;
                 z-index: 1;
             }}
-            .logo-container {{
+            .image-fade {{
                 position: absolute;
-                top: 60px;
-                left: 60px;
-                z-index: 2;
-                background: rgba(255, 255, 255, 0.1);
-                backdrop-filter: blur(15px);
-                -webkit-backdrop-filter: blur(15px);
-                padding: 15px 25px;
-                border-radius: 20px;
-                border: 1px solid rgba(255, 255, 255, 0.2);
-                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-            }}
-            .logo-container img {{
-                height: 140px;
-                width: auto;
-            }}
-            .content-wrapper {{
-                position: relative;
-                z-index: 2;
-                margin: 0 60px 60px 60px;
-                background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05));
-                backdrop-filter: blur(40px) saturate(180%);
-                -webkit-backdrop-filter: blur(40px) saturate(180%);
-                border: 1px solid rgba(255, 255, 255, 0.3);
-                border-radius: 40px;
-                padding: 60px;
-                box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-                display: flex;
-                flex-direction: column;
-                gap: 30px;
-            }}
-            .badge {{
-                align-self: flex-start;
-                background: linear-gradient(90deg, #FF3B30, #FF2D55);
-                padding: 10px 20px;
-                border-radius: 12px;
-                font-size: 20px;
-                font-weight: 800;
-                letter-spacing: 2px;
-                text-transform: uppercase;
-                box-shadow: 0 4px 15px rgba(255, 59, 48, 0.4);
-            }}
-            .headline {{
-                font-size: 65px;
-                font-weight: 800;
-                line-height: 1.15;
-                letter-spacing: -1px;
-                color: #ffffff;
-                text-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            }}
-            .body-text {{
-                font-family: 'Inter', sans-serif;
-                font-size: 32px;
-                font-weight: 400;
-                line-height: 1.6;
-                color: #e2e8f0;
-                max-width: 95%;
-            }}
-            .highlight {{
-                color: #38bdf8;
-                font-weight: 700;
-                position: relative;
-                white-space: nowrap;
-                text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
-            }}
-            .highlight::after {{
-                content: '';
-                position: absolute;
-                bottom: 2px;
+                bottom: 0;
                 left: 0;
                 width: 100%;
-                height: 4px;
-                background: #38bdf8;
-                border-radius: 2px;
-                opacity: 0.7;
+                height: 40%;
+                background: linear-gradient(to bottom, rgba(242, 242, 247, 0) 0%, rgba(242, 242, 247, 1) 100%);
+                z-index: 2;
+            }}
+            .logo-wrapper {{
+                position: absolute;
+                top: 40px;
+                left: 40px;
+                z-index: 10;
+                background: rgba(255, 255, 255, 0.2);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border: 1px solid rgba(255, 255, 255, 0.4);
+                border-radius: 24px;
+                padding: 15px 25px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            }}
+            .logo-wrapper img {{
+                height: 80px;
+                width: auto;
+            }}
+            .glass-container {{
+                position: absolute;
+                bottom: 50px;
+                left: 50px;
+                right: 50px;
+                z-index: 5;
+                background: rgba(255, 255, 255, 0.75);
+                backdrop-filter: blur(40px) saturate(200%);
+                -webkit-backdrop-filter: blur(40px) saturate(200%);
+                border: 1px solid rgba(255, 255, 255, 0.6);
+                border-radius: 40px;
+                padding: 50px;
+                box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15), inset 0 2px 0 rgba(255, 255, 255, 0.8);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }}
+            .red-box-group {{
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 8px;
+                margin-top: -90px;
+                margin-bottom: 30px;
+                z-index: 10;
+            }}
+            .red-box {{
+                background: linear-gradient(135deg, #d32f2f, #b71c1c);
+                color: #ffffff;
+                font-size: 26px;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 1.5px;
+                padding: 12px 30px;
+                border-radius: 12px;
+                box-shadow: 0 10px 25px rgba(183, 28, 28, 0.4);
+                display: inline-block;
+            }}
+            .headline {{
+                font-size: 42px;
+                font-weight: 800;
+                line-height: 1.3;
+                color: #1c1c1e;
+                margin-bottom: 20px;
+                letter-spacing: -0.5px;
+            }}
+            .footer {{
+                margin-top: 20px;
+                font-size: 20px;
+                font-weight: 800;
+                color: #d32f2f;
+                letter-spacing: 2px;
+                text-transform: uppercase;
             }}
         </style>
     </head>
     <body>
-        <div class="overlay"></div>
-        <div class="logo-container">
+        <div class="image-section">
+            <div class="image-fade"></div>
+        </div>
+        <div class="logo-wrapper">
             <img src="file:///{LOGO_HTML_PATH}" alt="Logo">
         </div>
-        <div class="content-wrapper">
-            <div class="badge">NEWS ALERT</div>
+        
+        <div class="glass-container">
+            <div class="red-box-group">
+                <div class="red-box">{box1}</div>
+                <div class="red-box">{box2}</div>
+            </div>
             <div class="headline">{headline}</div>
-            <div class="body-text">{body}</div>
+            <div class="footer">IN-DEPTH STORY</div>
         </div>
     </body>
     </html>
