@@ -151,7 +151,10 @@ def init_dirs():
 def make_hti(width=1080, height=1350):
     h = Html2Image(size=(width, height), browser_executable='google-chrome')
     h.output_path = OUTPUT_DIR
-    h.browser.flags = ['--no-sandbox', '--disable-setuid-sandbox', '--allow-file-access-from-files']
+    h.browser.flags = [
+        '--no-sandbox', '--disable-setuid-sandbox',
+        '--allow-file-access-from-files', '--disable-dev-shm-usage'
+    ]
     return h
 
 # ============================================================
@@ -222,6 +225,10 @@ def get_page_token():
 def post_to_facebook(image_path, caption):
     if not FB_PAGE_ID or not FB_PAGE_ACCESS_TOKEN:
         print("    [!] FB credentials missing."); return False
+    if not os.path.exists(image_path):
+        print(f"    [!] Image file missing: {image_path}"); return False
+    if os.path.getsize(image_path) < 5000:
+        print(f"    [!] Image too small (likely blank/error): {image_path}"); return False
     token = get_page_token()
     if not token: print("    [!] No page token."); return False
     try:
@@ -229,9 +236,10 @@ def post_to_facebook(image_path, caption):
             r = requests.post(
                 f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}/photos",
                 data={'message': caption, 'access_token': token},
-                files={'source': f}, timeout=30)
-        if r.status_code == 200: print("    [✅ Facebook] Posted!"); return True
-        print(f"    [FB Error] {r.text}"); return False
+                files={'source': f}, timeout=60)
+        if r.status_code == 200: print("    [OK] Posted to Facebook!"); return True
+        err = r.json().get('error', {})
+        print(f"    [FB Error {r.status_code}] {err.get('message', r.text[:200])}"); return False
     except Exception as e: print(f"    [FB Exception] {e}"); return False
 
 # ============================================================
@@ -399,7 +407,11 @@ def run_mode_1_news():
                 safe = re.sub(r'[^a-zA-Z0-9]', '_', headline)[:50]
                 fname = f"news_{safe}_{int(time.time())}.png"
                 hti.screenshot(html_str=html, save_as=fname)
-                ready_to_post.append((os.path.join(OUTPUT_DIR, fname), caption, fname))
+                time.sleep(2)  # let Chrome write the file
+                img_path = os.path.join(OUTPUT_DIR, fname)
+                if not os.path.exists(img_path) or os.path.getsize(img_path) < 5000:
+                    print(f"    [Skip] Image generation failed for: {fname}"); continue
+                ready_to_post.append((img_path, caption, fname))
 
         except Exception as e:
             print(f"    [ERROR] {site['name']}: {e}")
@@ -414,8 +426,10 @@ def run_mode_1_news():
         for i, (img_path, caption, fname) in enumerate(ready_to_post):
             success = post_to_facebook(img_path, caption)
             if success:
-                archive = os.path.join(POSTED_DIR, fname)
-                shutil.move(img_path, archive)
+                try:
+                    shutil.move(img_path, os.path.join(POSTED_DIR, fname))
+                except Exception:
+                    pass
             if i < len(ready_to_post) - 1:
                 delay = random.randint(30, avg_wait * 2)
                 print(f"    [Anti-Spam] Sleeping {delay/60:.1f} min...")
@@ -567,22 +581,18 @@ def run_mode_2_gold():
     html = generate_gold_card(fine, tej, silv, date_str)
     fname = f"gold_{get_nepal_now().strftime('%Y%m%d')}.png"
     hti.screenshot(html_str=html, save_as=fname)
+    time.sleep(2)
+    img_path = os.path.join(OUTPUT_DIR, fname)
 
-    caption = f"""Today's Nepal Gold & Silver Rates — {date_str}
-
-Fine Gold (24K Shuddha Suna): Rs. {fine} per tola
-Tejabi Gold (Tejabi Suna): Rs. {tej} per tola
-Silver (Chandi): Rs. {silv} per tola
-
-Rates sourced from FENEGOSIDA (Federation of Nepal Gold & Silver Dealers Association). These are the official bullion prices for today.
-
-Follow Nepal Central News for daily gold and silver rate updates!
-#NepalGoldRate #SunaKoMolya #GoldPrice #Nepal #NepalCentralNews"""
-
-    if post_to_facebook(os.path.join(OUTPUT_DIR, fname), caption):
-        shutil.move(os.path.join(OUTPUT_DIR, fname), os.path.join(POSTED_DIR, fname))
-    history.add(today_key)
-    save_history(history)
+    if os.path.exists(img_path) and os.path.getsize(img_path) > 5000:
+        if post_to_facebook(img_path, caption):
+            try:
+                shutil.move(img_path, os.path.join(POSTED_DIR, fname))
+            except Exception: pass
+            history.add(today_key)
+            save_history(history)
+    else:
+        print("  [!] Image generation failed or file is too small.")
 
 # ============================================================
 # MODE 3 — WIKIPEDIA "ON THIS DAY"
@@ -736,6 +746,8 @@ def run_mode_3_otd():
     html = generate_otd_card(headline, body, year, month_day)
     fname = f"otd_{now.strftime('%Y%m%d')}.png"
     hti.screenshot(html_str=html, save_as=fname)
+    time.sleep(2)
+    img_path = os.path.join(OUTPUT_DIR, fname)
 
     full_caption = f"""On This Day in History — {month_day}
 
@@ -746,10 +758,15 @@ def run_mode_3_otd():
 Follow Nepal Central News for daily historical facts, news, and updates from Nepal and around the world!
 #OnThisDay #History #NepalCentralNews #DidYouKnow"""
 
-    if post_to_facebook(os.path.join(OUTPUT_DIR, fname), full_caption):
-        shutil.move(os.path.join(OUTPUT_DIR, fname), os.path.join(POSTED_DIR, fname))
-    history.add(today_key)
-    save_history(history)
+    if os.path.exists(img_path) and os.path.getsize(img_path) > 5000:
+        if post_to_facebook(img_path, full_caption):
+            try:
+                shutil.move(img_path, os.path.join(POSTED_DIR, fname))
+            except Exception: pass
+            history.add(today_key)
+            save_history(history)
+    else:
+        print("  [!] Image generation failed or file is too small.")
 
 # ============================================================
 # MODE 4 — POP CULTURE TRIVIA (AI-Generated)
@@ -872,6 +889,8 @@ def run_mode_4_trivia():
     html = generate_trivia_card(headline, body, highlight, bg_url)
     fname = f"trivia_{now.strftime('%Y%m%d')}.png"
     hti.screenshot(html_str=html, save_as=fname)
+    time.sleep(2)
+    img_path = os.path.join(OUTPUT_DIR, fname)
 
     full_caption = f"""Pop Culture Fact of the Day
 
@@ -882,10 +901,15 @@ def run_mode_4_trivia():
 Follow Nepal Central News for daily trivia, news updates, and entertainment facts!
 #PopCulture #Trending #DidYouKnow #NepalCentralNews"""
 
-    if post_to_facebook(os.path.join(OUTPUT_DIR, fname), full_caption):
-        shutil.move(os.path.join(OUTPUT_DIR, fname), os.path.join(POSTED_DIR, fname))
-    history.add(today_key)
-    save_history(history)
+    if os.path.exists(img_path) and os.path.getsize(img_path) > 5000:
+        if post_to_facebook(img_path, full_caption):
+            try:
+                shutil.move(img_path, os.path.join(POSTED_DIR, fname))
+            except Exception: pass
+            history.add(today_key)
+            save_history(history)
+    else:
+        print("  [!] Image generation failed or file is too small.")
 
 # ============================================================
 # MODE 5 — NASA APOD
@@ -1020,6 +1044,8 @@ def run_mode_5_nasa():
     html = generate_apod_card(headline, body, apod['url'], apod['title'])
     fname = f"nasa_{now.strftime('%Y%m%d')}.png"
     hti.screenshot(html_str=html, save_as=fname)
+    time.sleep(2)
+    img_path = os.path.join(OUTPUT_DIR, fname)
 
     full_caption = f"""NASA Astronomy Picture of the Day
 
@@ -1032,10 +1058,15 @@ Credit: NASA / {apod.get('copyright', 'ESA')}
 Follow Nepal Central News for daily space discoveries and science updates!
 #NASA #APOD #Space #Astronomy #NepalCentralNews #Universe"""
 
-    if post_to_facebook(os.path.join(OUTPUT_DIR, fname), full_caption):
-        shutil.move(os.path.join(OUTPUT_DIR, fname), os.path.join(POSTED_DIR, fname))
-    history.add(today_key)
-    save_history(history)
+    if os.path.exists(img_path) and os.path.getsize(img_path) > 5000:
+        if post_to_facebook(img_path, full_caption):
+            try:
+                shutil.move(img_path, os.path.join(POSTED_DIR, fname))
+            except Exception: pass
+            history.add(today_key)
+            save_history(history)
+    else:
+        print("  [!] Image generation failed or file is too small.")
 
 # ============================================================
 # MAIN DISPATCHER
