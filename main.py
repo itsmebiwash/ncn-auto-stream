@@ -417,7 +417,7 @@ def run_mode_1_news():
             if r.status_code != 200: continue
             soup = BeautifulSoup(r.text, 'html.parser')
             containers = soup.find_all(site['container_tag'], class_=site['container_class'])
-            if not containers: containers = soup.find_all(site['container_tag'])
+            if not containers: containers = soup.find_all(site['container_tag'], class_=site.get('container_class'))
 
             for container in containers:
                 if articles_found >= max_per_site: break
@@ -440,7 +440,7 @@ def run_mode_1_news():
 
                 headline, box1, box2, caption_text, short_summary, hashtags, category, intent = parse_news_ai(ai_out)
                 articles_found += 1
-                history.add(title_text)
+                # NOTE: We do NOT add to history here yet — only after confirmed successful post
 
                 bg_final = None
                 kw = box1
@@ -469,7 +469,7 @@ Credit: {site['name']}
 
 {hashtags} #NepalCentralNews"""
 
-                ready_to_post.append((img_path, full_caption, fname))
+                ready_to_post.append((img_path, full_caption, fname, title_text))
 
         except Exception as e:
             print(f"    [ERROR] {site['name']}: {e}")
@@ -477,23 +477,46 @@ Credit: {site['name']}
 
     if not ready_to_post:
         print("  [-] No new articles found.")
-    else:
-        print(f"\n  [+] {len(ready_to_post)} articles ready. Uploading...")
-        max_wait = 1200
-        avg_wait = max(30, max_wait // len(ready_to_post))
-        for i, (img_path, caption, fname) in enumerate(ready_to_post):
-            success = post_to_facebook(img_path, caption)
-            if success:
-                try:
-                    shutil.move(img_path, os.path.join(POSTED_DIR, fname))
-                except Exception:
-                    pass
-            if i < len(ready_to_post) - 1:
-                delay = random.randint(30, avg_wait * 2)
-                print(f"    [Anti-Spam] Sleeping {delay/60:.1f} min...")
-                time.sleep(delay)
+        save_history(history)
+        return
 
-    save_history(history)
+    print(f"\n  [+] {len(ready_to_post)} articles ready. Uploading...")
+    max_wait = 1200
+    avg_wait = max(30, max_wait // len(ready_to_post))
+
+    for i, (img_path, caption, fname, original_title) in enumerate(ready_to_post):
+        # Re-load history fresh before each post to catch parallel runners
+        history = load_history()
+        if original_title in history or is_similar_duplicate(original_title, history):
+            print(f"    [SKIP] Already posted by another runner: {original_title[:50]}")
+            try:
+                if os.path.exists(img_path):
+                    os.remove(img_path)
+            except Exception:
+                pass
+            continue
+
+        success = post_to_facebook(img_path, caption)
+        if success:
+            # Immediately lock this article in history so no other device can re-post it
+            history.add(original_title)
+            save_history(history)
+            try:
+                shutil.move(img_path, os.path.join(POSTED_DIR, fname))
+            except Exception:
+                pass
+        else:
+            # Post failed — remove the image so it can be retried next run
+            try:
+                if os.path.exists(img_path):
+                    os.remove(img_path)
+            except Exception:
+                pass
+
+        if i < len(ready_to_post) - 1:
+            delay = random.randint(30, avg_wait * 2)
+            print(f"    [Anti-Spam] Sleeping {delay/60:.1f} min...")
+            time.sleep(delay)
 
 # ============================================================
 # MODE 2 — NEPAL GOLD & SILVER RATES

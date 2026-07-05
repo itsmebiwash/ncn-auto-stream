@@ -40,32 +40,37 @@ def main():
     print("\n[1/4] Syncing state from GitHub...")
     run_cmd("git pull --rebase")
 
-    # 2. Run Main Content Engine
-    print("\n[2/4] Running Main Engine (News, Gold, NASA, etc.)...")
-    run_cmd("python main.py")
-
-    # 3. Run Football Scores Engine
-    print("\n[3/4] Running WC Scores Engine...")
-    run_cmd("python wc_scores.py")
-
-    # 4. Update Heartbeat
+    # 2. CLAIM THE LOCK: Update Heartbeat and push immediately so other devices don't start
+    print("\n[2/4] Claiming execution lock (updating heartbeat)...")
     if not os.path.exists("data"):
         os.makedirs("data")
-    
     now_utc = datetime.now(timezone.utc)
-    # Write ISO format timestamp
     with open("data/last_heartbeat.txt", "w") as f:
         f.write(now_utc.isoformat())
+    
+    run_cmd("git add data/last_heartbeat.txt")
+    status = subprocess.run("git status --porcelain", shell=True, capture_output=True, text=True)
+    if "data/last_heartbeat.txt" in status.stdout:
+        run_cmd('git config user.name "github-actions[bot]"')
+        run_cmd('git config user.email "github-actions[bot]@users.noreply.github.com"')
+        run_cmd('git commit -m "chore: claim execution lock [skip ci]"')
+        run_cmd("git push")
+
+    # 3. Run Main Content Engine
+    print("\n[3/4] Running Main Engine (News, Gold, NASA, etc.)...")
+    run_cmd("python main.py")
+
+    # 4. Run Football Scores Engine
+    print("\n[4/4] Running WC Scores Engine...")
+    run_cmd("python wc_scores.py")
 
     # 5. Push updated state back to GitHub
-    print("\n[4/4] Pushing updated state to GitHub...")
-    run_cmd("git add data/scraped_history.txt data/wc_posted_history.txt data/last_heartbeat.txt")
+    print("\n[5/5] Pushing updated history to GitHub...")
+    run_cmd("git add data/scraped_history.txt data/wc_posted_history.txt")
     
     # Check if there are changes to commit
     status = subprocess.run("git status --porcelain", shell=True, capture_output=True, text=True)
     if "data/" in status.stdout:
-        run_cmd('git config user.name "github-actions[bot]"')
-        run_cmd('git config user.email "github-actions[bot]@users.noreply.github.com"')
         run_cmd('git commit -m "chore: sync state from local device [skip ci]"')
         
         # Try to push, if it fails due to remote changes during our run, pull and push again
