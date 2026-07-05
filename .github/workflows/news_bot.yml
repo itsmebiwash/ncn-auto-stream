@@ -29,6 +29,42 @@ jobs:
         run: |
           pip install requests beautifulsoup4 html2image
 
+      - name: Verify Secrets & Test AI Connection
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_ACCESS_TOKEN: ${{ secrets.FB_PAGE_ACCESS_TOKEN }}
+        run: |
+          python -c "
+          import os, requests
+          keys = {
+            'GEMINI_API_KEY': os.environ.get('GEMINI_API_KEY', ''),
+            'GROQ_API_KEY': os.environ.get('GROQ_API_KEY', ''),
+            'OPENROUTER_API_KEY': os.environ.get('OPENROUTER_API_KEY', ''),
+            'PEXELS_API_KEY': os.environ.get('PEXELS_API_KEY', ''),
+            'FB_PAGE_ID': os.environ.get('FB_PAGE_ID', ''),
+            'FB_PAGE_ACCESS_TOKEN': os.environ.get('FB_PAGE_ACCESS_TOKEN', ''),
+          }
+          for k, v in keys.items():
+            status = 'SET (' + str(len(v)) + ' chars)' if v else 'MISSING!'
+            print(f'  {k}: {status}')
+          print()
+          key = keys['GEMINI_API_KEY']
+          if key:
+            url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={key}'
+            r = requests.post(url, json={'contents': [{'parts': [{'text': 'Say: OK'}]}]}, timeout=10)
+            print(f'Gemini API Test: HTTP {r.status_code}')
+            if r.status_code == 200:
+              print('  Gemini: WORKING!')
+            else:
+              print(f'  Gemini Error: {r.text[:200]}')
+          else:
+            print('Gemini API Test: SKIPPED (key missing)')
+          "
+
       - name: Run Scraper Pipeline
         run: python main.py
         env:
