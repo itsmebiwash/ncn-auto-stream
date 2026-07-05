@@ -16,6 +16,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # ==========================================
 # 🔑 ENVIRONMENT VARIABLES
 # ==========================================
+# Single keys (backward compat)
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
@@ -136,35 +137,49 @@ def get_pexels_image(keyword):
         pass
     return None
 
-# Handle multiple Gemini Keys (API Rotation)
+# ==========================================
+# 🔄 API KEY ROTATION — Load all keys
+# ==========================================
+# Groq: supports GROQ_API_KEYS (comma-separated) OR single GROQ_API_KEY
+GROQ_API_KEYS_RAW = os.environ.get("GROQ_API_KEYS", "")
+GROQ_API_KEYS = [k.strip() for k in GROQ_API_KEYS_RAW.split(",") if k.strip()]
+if not GROQ_API_KEYS and GROQ_API_KEY:  # fallback to single key
+    GROQ_API_KEYS = [GROQ_API_KEY]
+
+# Gemini: supports GEMINI_API_KEYS (comma-separated) OR single GEMINI_API_KEY
 GEMINI_API_KEYS_RAW = os.environ.get("GEMINI_API_KEYS", "")
 GEMINI_API_KEYS = [k.strip() for k in GEMINI_API_KEYS_RAW.split(",") if k.strip()]
+if not GEMINI_API_KEYS and GEMINI_API_KEY:
+    GEMINI_API_KEYS = [GEMINI_API_KEY]
+
+def generate_with_groq(prompt):
+    if not GROQ_API_KEYS: return None
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    for key in GROQ_API_KEYS:
+        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+        payload = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": prompt}], "temperature": 0.3}
+        try:
+            res = requests.post(url, headers=headers, json=payload, timeout=15)
+            if res.status_code == 200:
+                return res.json()['choices'][0]['message']['content'].strip()
+            else:
+                print(f"    [Groq] Key {key[:8]}... returned {res.status_code}. Trying next key...")
+        except Exception as e:
+            print(f"    [Groq] Key {key[:8]}... exception: {e}. Trying next key...")
+    return None
 
 def generate_with_gemini(prompt):
     if not GEMINI_API_KEYS: return None
-    
     for key in GEMINI_API_KEYS:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={key}"
         try:
-            res = requests.post(url, headers={'Content-Type': 'application/json'}, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=10)
+            res = requests.post(url, headers={'Content-Type': 'application/json'}, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=15)
             if res.status_code == 200:
-                return res.json()['contents'][0]['parts'][0]['text'].strip()
+                return res.json()['candidates'][0]['content']['parts'][0]['text'].strip()
             else:
                 print(f"    [Gemini] Key {key[:6]}... returned {res.status_code}. Trying next key...")
         except Exception:
             pass
-            
-    return None
-
-def generate_with_groq(prompt):
-    if not GROQ_API_KEY: return None
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-    payload = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": prompt}], "temperature": 0.3}
-    try:
-        res = requests.post(url, headers=headers, json=payload, timeout=10)
-        if res.status_code == 200: return res.json()['choices'][0]['message']['content'].strip()
-    except Exception: pass
     return None
 
 def generate_with_openrouter(prompt):
