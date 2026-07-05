@@ -101,6 +101,10 @@ TARGET_SITES = [
      "container_tag": "div",     "container_class": "items",          "title_tag": "span"},
     {"name": "KhojSamachar", "url": "https://khojsamachar.com/",
      "container_tag": "article", "container_class": "post",           "title_tag": "h2"},
+    {"name": "TechPana",     "url": "https://techpana.com/",
+     "container_tag": "div",     "container_class": "item-details",   "title_tag": "h3"},
+    {"name": "RONBPost",     "url": "https://www.ronbpost.com/",
+     "container_tag": "article", "container_class": "post",           "title_tag": "h2"},
     {"name": "BBCNews",      "url": "https://www.bbc.com/news/world",
      "container_tag": "div",     "container_class": "sc-b8778340-3",  "title_tag": "h2"},
 ]
