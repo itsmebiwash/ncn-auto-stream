@@ -383,14 +383,14 @@ def generate_news_card(headline, box1, box2, bg_image_url, category, short_summa
         print(f"Error loading template: {e}")
         return ""
     
-    # Replace variables
+    # Inject dynamic variables
+    logo_path = LOGO_HTML.replace("\\", "/")
     html = html.replace("{IMAGE_URL}", bg_image_url)
     html = html.replace('<div class="master-canvas layout-news">', f'<div class="master-canvas {layout_class}">')
     html = html.replace("{CATEGORY_BADGE}", f"{box1} | {box2}")
     html = html.replace("{HEADLINE_TITLE}", headline)
     html = html.replace("{BODY_DESCRIPTION}", short_summary)
-    html = html.replace("../../assets/logo.png", f"file:///{LOGO_HTML}")
-    html = html.replace("www.yourchannel.com", "Nepal Central News")
+    html = html.replace("../../assets/logo.png", f"file:///{logo_path}")
     
     return html
 

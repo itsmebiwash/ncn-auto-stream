@@ -3,21 +3,13 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Automated Infotainment Engine Canvas</title>
-    <!-- Google Fonts import for premium typography -->
+    <title>NCN Template</title>
     <link
         href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;700;900&family=Space+Grotesk:wght@500;700&family=Playfair+Display:ital,wght@1,700&display=swap"
         rel="stylesheet">
 
     <style>
-        /* =========================================================================
-           🌐 CORE CANVAS RESET & BASE STYLES (Fixed 1080x1350 Meta Post Box)
-           ========================================================================= */
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         .master-canvas {
             width: 1080px;
@@ -29,443 +21,402 @@
             flex-direction: column;
         }
 
-        /* Background image container across all versions */
         .bg-scraped-photo {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             background: url('{IMAGE_URL}') center center / cover no-repeat;
             z-index: 1;
         }
 
-        /* Branding element logo placement */
         .brand-logo-container {
             position: absolute;
-            z-index: 10;
-            width: 130px;
+            z-index: 20;
+            width: 120px;
         }
+        .brand-logo-container img { width: 100%; height: auto; }
 
-        .brand-logo-container img {
-            width: 100%;
-            height: auto;
+        /* ── SHARED GLASS LOGO PILL ── */
+        .logo-glass-pill {
+            position: absolute;
+            z-index: 20;
+            top: 55px; left: 55px;
+            background: rgba(255,255,255,0.12);
+            backdrop-filter: blur(18px) saturate(180%);
+            -webkit-backdrop-filter: blur(18px) saturate(180%);
+            border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 18px;
+            padding: 10px 18px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.25);
         }
+        .logo-glass-pill img { height: 62px; width: auto; display: block; }
 
-        /* Decorative Vector Elements from image_54c4a2.jpg */
+        /* Decorative dot grid */
         .dot-matrix {
             position: absolute;
-            width: 120px;
-            height: 120px;
-            background-image: radial-gradient(rgba(255, 255, 255, 0.25) 1.5px, transparent 1.5px);
+            width: 120px; height: 120px;
+            background-image: radial-gradient(rgba(255,255,255,0.2) 1.5px, transparent 1.5px);
             background-size: 12px 12px;
             z-index: 5;
         }
 
+        /* Wavy accent line */
         .wavy-accent-line {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            z-index: 4;
-            pointer-events: none;
-            opacity: 0.7;
+            position: absolute; bottom: 0; left: 0;
+            width: 100%; z-index: 4;
+            pointer-events: none; opacity: 0.5;
         }
 
-        /* Default highlight styling */
-        .text-highlight {
-            color: #ffcc00;
-            font-weight: 900;
-        }
+        /* ================================================================
+           LAYOUT-NEWS  |  Politics & General
+           Huge full-bleed photo, deep crimson fade at bottom,
+           Glass card hovers over photo with bold editorial typography.
+           ================================================================ */
+        .layout-news .bg-scraped-photo { height: 65%; }
 
-        /* =========================================================================
-           📰 MODEL 1: HARD NEWS & POLITICS (Inspired Exactly by image_54c4a2.jpg)
-           ========================================================================= */
-        .layout-news .brand-logo-container {
-            top: 70px;
-            left: 65px;
-        }
-
-        .layout-news .dot-matrix-top {
-            top: 60px;
-            right: 60px;
-        }
-
-        .layout-news .dot-matrix-bottom {
-            bottom: 400px;
-            right: 40px;
-        }
-
-        /* Dense bottom heavy dark crimson layout mask block */
         .layout-news .gradient-overlay {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 65%;
-            background: linear-gradient(to bottom, rgba(88, 3, 3, 0) 0%, rgba(88, 3, 3, 0.75) 30%, #580303 75%, #3a0202 100%);
+            position: absolute; bottom: 0; left: 0;
+            width: 100%; height: 72%;
+            background: linear-gradient(to bottom,
+                rgba(42,2,2,0) 0%,
+                rgba(60,3,3,0.7) 25%,
+                #3a0101 60%,
+                #220000 100%);
             z-index: 3;
         }
 
-        .layout-news .content-wrapper {
+        .layout-news .dot-matrix-top  { top: 55px; right: 55px; }
+        .layout-news .dot-matrix-bottom { bottom: 420px; right: 42px; }
+
+        .layout-news .glass-content-card {
             position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            padding: 0 65px 80px 65px;
-            z-index: 6;
-            color: #ffffff;
-            font-family: 'Inter', sans-serif;
+            bottom: 55px; left: 55px; right: 55px;
+            background: rgba(20, 2, 2, 0.55);
+            backdrop-filter: blur(28px) saturate(180%);
+            -webkit-backdrop-filter: blur(28px) saturate(180%);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-top: 1.5px solid rgba(255,80,80,0.35);
+            border-radius: 28px;
+            padding: 48px 52px 42px;
+            z-index: 10;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.05);
         }
 
-        /* Red rectangular header flag badge */
         .layout-news .category-badge {
             display: inline-block;
-            background-color: #c90909;
-            color: #ffffff;
+            background: #c90909;
+            color: #fff;
             font-family: 'Inter', sans-serif;
             font-weight: 900;
-            font-size: 24px;
-            letter-spacing: 1px;
-            padding: 10px 24px;
+            font-size: 22px;
+            letter-spacing: 2px;
+            padding: 9px 24px;
             text-transform: uppercase;
-            margin-bottom: 35px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-            border-radius: 3px;
+            border-radius: 4px;
+            margin-bottom: 28px;
+            box-shadow: 0 4px 18px rgba(201,9,9,0.5);
         }
 
-        /* Huge bold uppercase dynamic news headline block */
         .layout-news .headline-title {
             font-family: 'Archivo Black', sans-serif;
-            font-size: 64px;
+            font-size: 58px;
             line-height: 1.15;
             text-transform: uppercase;
-            letter-spacing: -1.5px;
-            margin-bottom: 30px;
-            text-shadow: 2px 4px 12px rgba(0, 0, 0, 0.4);
+            letter-spacing: -1px;
+            color: #fff;
+            margin-bottom: 26px;
+            text-shadow: 2px 4px 14px rgba(0,0,0,0.5);
         }
 
         .layout-news .body-description {
-            font-size: 30px;
-            line-height: 1.6;
-            color: #e2e8f0;
-            font-weight: 400;
-            margin-bottom: 50px;
-            max-width: 90%;
+            font-family: 'Inter', sans-serif;
+            font-size: 26px;
+            line-height: 1.65;
+            color: #e2caca;
+            margin-bottom: 36px;
         }
 
         .layout-news .footer-meta {
             display: flex;
-            justify-content: flex-end;
-            font-size: 24px;
-            color: #ffffff;
-            font-weight: 700;
-            border-top: 1px solid rgba(255, 255, 255, 0.15);
-            padding-top: 25px;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid rgba(255,255,255,0.12);
+            padding-top: 22px;
+            font-family: 'Inter', sans-serif;
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.45);
         }
+        .layout-news .footer-meta span { color: #c90909; }
 
-        /* =========================================================================
-           ⚡ MODEL 2: FUTURISTIC TECHNOLOGY (Asymmetric Tech Grid Layout)
-           ========================================================================= */
-        .layout-tech .brand-logo-container {
-            top: 60px;
-            right: 60px;
-        }
 
+        /* ================================================================
+           LAYOUT-TECH  |  Technology & Gadgets
+           Dark radial vignette, neon cyan accents,
+           Left-bordered badge + frosted glass panel on right side.
+           ================================================================ */
         .layout-tech .gradient-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle at 10% 10%, rgba(10, 25, 47, 0.2) 0%, rgba(2, 12, 27, 0.95) 85%);
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: radial-gradient(circle at 15% 15%, rgba(5,15,30,0.15) 0%, rgba(2,8,20,0.92) 80%);
             z-index: 3;
         }
 
-        .layout-tech .content-wrapper {
+        /* Glass panel sits on left, image peeks through right side */
+        .layout-tech .glass-content-card {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            padding: 120px 80px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            z-index: 6;
-            color: #64ffda;
-            font-family: 'Space Grotesk', sans-serif;
+            top: 50%; left: 55px;
+            transform: translateY(-50%);
+            width: 60%;
+            background: rgba(0, 15, 35, 0.55);
+            backdrop-filter: blur(30px) saturate(200%);
+            -webkit-backdrop-filter: blur(30px) saturate(200%);
+            border: 1px solid rgba(100,255,218,0.18);
+            border-left: 3px solid #64ffda;
+            border-radius: 0 24px 24px 0;
+            padding: 52px 48px 48px 52px;
+            z-index: 10;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(100,255,218,0.06);
         }
 
-        /* Cyberpunk styled bracket badge */
+        .layout-tech .logo-glass-pill {
+            top: auto;
+            bottom: 55px; left: 55px;
+        }
+
         .layout-tech .category-badge {
-            font-size: 22px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 20px;
             font-weight: 700;
-            letter-spacing: 3px;
+            letter-spacing: 4px;
             text-transform: uppercase;
-            margin-bottom: 20px;
             color: #64ffda;
             border-left: 4px solid #64ffda;
-            padding-left: 15px;
+            padding-left: 14px;
+            margin-bottom: 24px;
+            display: block;
         }
 
         .layout-tech .headline-title {
-            color: #e2e8f0;
-            font-size: 58px;
+            font-family: 'Space Grotesk', sans-serif;
+            color: #e2f0ff;
+            font-size: 52px;
             font-weight: 700;
             line-height: 1.2;
-            margin-bottom: 40px;
-            border-bottom: 1px solid rgba(100, 255, 218, 0.2);
-            padding-bottom: 40px;
+            margin-bottom: 28px;
+            border-bottom: 1px solid rgba(100,255,218,0.2);
+            padding-bottom: 28px;
         }
 
         .layout-tech .body-description {
+            font-family: 'Space Grotesk', sans-serif;
             color: #8892b0;
-            font-size: 32px;
+            font-size: 26px;
             line-height: 1.7;
             font-weight: 500;
-        }
-
-        .layout-tech .text-highlight {
-            color: #64ffda;
-            text-shadow: 0 0 10px rgba(100, 255, 218, 0.3);
+            margin-bottom: 34px;
         }
 
         .layout-tech .footer-meta {
-            position: absolute;
-            bottom: 60px;
-            left: 80px;
-            font-size: 22px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 16px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
             color: #64ffda;
+            opacity: 0.6;
         }
 
-        /* =========================================================================
-           📊 MODEL 3: MARKET SHARE & FINANCIALS (Infographic Split Dashboard)
-           ========================================================================= */
-        .layout-market .brand-logo-container {
-            top: 50px;
-            left: 50px;
-        }
 
-        /* 50/50 horizontal split framework model */
-        .layout-market .bg-scraped-photo {
-            height: 45%;
-            top: 0;
-        }
+        /* ================================================================
+           LAYOUT-MARKET  |  Business & Finance
+           Top half is full photo, bottom half is deep dark glass panel
+           with green accent border — infographic dashboard feel.
+           ================================================================ */
+        .layout-market .bg-scraped-photo { height: 48%; top: 0; }
 
         .layout-market .gradient-overlay {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 55%;
-            background-color: #111827;
+            position: absolute; bottom: 0; left: 0;
+            width: 100%; height: 55%;
+            background: rgba(8, 16, 30, 0.92);
+            backdrop-filter: blur(0px);
             z-index: 3;
-            border-top: 6px solid #10b981;
+            border-top: 5px solid #10b981;
         }
 
-        .layout-market .content-wrapper {
+        .layout-market .glass-content-card {
             position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
+            bottom: 0; left: 0; right: 0;
             height: 55%;
-            padding: 60px 60px 50px 60px;
-            z-index: 6;
-            color: #ffffff;
-            font-family: 'Inter', sans-serif;
+            background: rgba(8, 18, 32, 0.65);
+            backdrop-filter: blur(24px) saturate(160%);
+            -webkit-backdrop-filter: blur(24px) saturate(160%);
+            border-top: 2px solid rgba(16,185,129,0.4);
+            padding: 52px 65px 45px;
+            z-index: 10;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
         }
 
+        .layout-market .logo-glass-pill { top: 42px; left: 50px; }
+
         .layout-market .category-badge {
-            background-color: #10b981;
-            color: #111827;
-            font-size: 20px;
+            display: inline-block;
+            background: #10b981;
+            color: #071a12;
+            font-family: 'Inter', sans-serif;
+            font-size: 18px;
             font-weight: 900;
-            padding: 6px 16px;
-            border-radius: 4px;
-            align-self: flex-start;
+            padding: 7px 18px;
+            border-radius: 5px;
             text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0;
+            align-self: flex-start;
+            box-shadow: 0 4px 14px rgba(16,185,129,0.45);
         }
 
         .layout-market .headline-title {
+            font-family: 'Inter', sans-serif;
             font-size: 48px;
             font-weight: 900;
-            line-height: 1.3;
-            color: #f3f4f6;
-        }
-
-        /* Structured modular summary display container box */
-        .layout-market .market-data-card {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 12px;
-            padding: 30px;
-            margin: 20px 0;
+            line-height: 1.25;
+            color: #f0fdf8;
         }
 
         .layout-market .body-description {
-            font-size: 26px;
-            line-height: 1.6;
+            font-family: 'Inter', sans-serif;
+            font-size: 24px;
+            line-height: 1.65;
             color: #9ca3af;
-        }
-
-        .layout-market .text-highlight {
-            color: #10b981;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(16,185,129,0.12);
+            border-radius: 12px;
+            padding: 22px 26px;
         }
 
         .layout-market .footer-meta {
-            font-size: 22px;
-            color: #6b7280;
-            text-align: center;
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-            padding-top: 20px;
-        }
-
-        /* =========================================================================
-           🌱 MODEL 4: HEALTH & LIFESTYLE (Elegant Humanist Clean Minimalist)
-           ========================================================================= */
-        .layout-health .brand-logo-container {
-            bottom: 70px;
-            left: 70px;
-        }
-
-        /* Floating nested image window panel overlay layout */
-        .layout-health .bg-scraped-photo {
-            width: 86%;
-            height: 50%;
-            top: 70px;
-            left: 70px;
-            border-radius: 24px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-        }
-
-        .layout-health .gradient-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #f7f4f0;
-            /* Calm off-white canvas base */
-            z-index: 2;
-        }
-
-        .layout-health .content-wrapper {
-            position: absolute;
-            bottom: 160px;
-            left: 70px;
-            right: 70px;
-            z-index: 6;
-            color: #2d3748;
             font-family: 'Inter', sans-serif;
+            font-size: 16px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: rgba(16,185,129,0.55);
+            border-top: 1px solid rgba(255,255,255,0.06);
+            padding-top: 18px;
+            text-align: center;
+        }
+
+
+        /* ================================================================
+           LAYOUT-HEALTH  |  Sports & Entertainment
+           Bold full-bleed photo with a premium frosted purple/neutral
+           glass card at the bottom. Elegant Playfair italic category label.
+           ================================================================ */
+        .layout-health .gradient-overlay {
+            position: absolute; bottom: 0; left: 0;
+            width: 100%; height: 60%;
+            background: linear-gradient(to bottom,
+                rgba(10,5,20,0) 0%,
+                rgba(15,8,28,0.75) 35%,
+                rgba(15,8,28,0.97) 100%);
+            z-index: 3;
+        }
+
+        .layout-health .dot-matrix-top { top: 55px; right: 55px; }
+
+        .layout-health .glass-content-card {
+            position: absolute;
+            bottom: 55px; left: 55px; right: 55px;
+            background: rgba(18, 10, 32, 0.58);
+            backdrop-filter: blur(30px) saturate(200%);
+            -webkit-backdrop-filter: blur(30px) saturate(200%);
+            border: 1px solid rgba(191,90,242,0.2);
+            border-top: 2px solid rgba(191,90,242,0.45);
+            border-radius: 28px;
+            padding: 46px 52px 42px;
+            z-index: 10;
+            box-shadow: 0 30px 70px rgba(0,0,0,0.65), 0 0 50px rgba(191,90,242,0.07), inset 0 1px 1px rgba(255,255,255,0.06);
         }
 
         .layout-health .category-badge {
             font-family: 'Playfair Display', serif;
             font-style: italic;
-            font-size: 28px;
-            color: #4a5568;
-            margin-bottom: 20px;
+            font-size: 26px;
+            color: #bf5af2;
+            margin-bottom: 18px;
             display: block;
+            letter-spacing: 0.5px;
         }
 
         .layout-health .headline-title {
-            font-size: 52px;
-            font-weight: 800;
-            line-height: 1.3;
-            color: #1a202c;
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 54px;
+            font-weight: 900;
+            line-height: 1.2;
+            color: #f0e8ff;
             letter-spacing: -0.5px;
-            margin-bottom: 25px;
+            margin-bottom: 24px;
         }
 
         .layout-health .body-description {
-            font-size: 28px;
-            line-height: 1.6;
-            color: #4a5568;
-        }
-
-        .layout-health .text-highlight {
-            color: #319795;
-            background: rgba(49, 151, 149, 0.08);
-            padding: 2px 10px;
-            border-radius: 6px;
+            font-family: 'Inter', sans-serif;
+            font-size: 26px;
+            line-height: 1.65;
+            color: #c4b5d4;
+            margin-bottom: 32px;
         }
 
         .layout-health .footer-meta {
-            position: absolute;
-            bottom: 70px;
-            right: 70px;
-            font-size: 22px;
-            color: #718096;
-            font-weight: 700;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid rgba(191,90,242,0.18);
+            padding-top: 20px;
+            font-family: 'Inter', sans-serif;
+            font-size: 17px;
+            font-weight: 800;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.35);
         }
+        .layout-health .footer-meta span { color: #bf5af2; }
+
     </style>
 </head>
 
 <body>
-
-    <!-- 
-      🚀 PYTHON INTERACTIVE SWITCH DIRECTIONS:
-      To execute different layouts dynamically based on your content category types, 
-      replace the active layout class name inside the main class token block below:
-      
-      Options:
-      1. Hard News / Politics: class="master-canvas layout-news" 
-      2. Tech / Gadget Trends: class="master-canvas layout-tech"
-      3. Business / Finance:   class="master-canvas layout-market"
-      4. Health / Wellness:    class="master-canvas layout-health"
-    -->
-
     <div class="master-canvas layout-news">
 
-        <!-- Scraped background image instance layer -->
         <div class="bg-scraped-photo"></div>
-
-        <!-- Dynamic Category Layout Background Mask Layer -->
         <div class="gradient-overlay"></div>
 
-        <!-- Corner Dot Grids explicitly drawn for image_54c4a2.jpg style -->
         <div class="dot-matrix dot-matrix-top"></div>
         <div class="dot-matrix dot-matrix-bottom"></div>
 
-        <!-- Decorative Vector Wave Layout overlay line from reference picture -->
-        <svg class="wavy-accent-line" viewBox="0 0 1080 300" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M0,150 C300,280 700,50 1080,180 L1080,300 L0,300 Z" fill="rgba(255,255,255,0.03)" />
-            <path d="M0,160 Q450,80 1080,210" stroke="rgba(255,255,255,0.15)" stroke-width="2" fill="none" />
+        <svg class="wavy-accent-line" viewBox="0 0 1080 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0,100 C300,180 700,30 1080,120 L1080,200 L0,200 Z" fill="rgba(255,255,255,0.025)" />
+            <path d="M0,110 Q450,50 1080,140" stroke="rgba(255,255,255,0.1)" stroke-width="1.5" fill="none" />
         </svg>
 
-        <!-- Dynamic Brand Identity Logo placement block -->
-        <div class="brand-logo-container">
-            <!-- Ensure your python code checks if local file assets/logo.png exists -->
-            <img src="../../assets/logo.png" alt="Logo Template Placeholder">
+        <!-- Glass Logo Pill (shown on all layouts) -->
+        <div class="logo-glass-pill">
+            <img src="../../assets/logo.png" alt="Nepal Central News">
         </div>
 
-        <!-- Structural Context Layer Container -->
-        <div class="content-wrapper">
-
-            <!-- Category Alert Box Label Tag -->
+        <!-- Glass Content Card (replaces old content-wrapper) -->
+        <div class="glass-content-card">
             <div class="category-badge">{CATEGORY_BADGE}</div>
-
-            <!-- Main Content Headline Box -->
             <div class="headline-title">{HEADLINE_TITLE}</div>
-
-            <!-- Body Content Box Wrapper -->
-            <!-- Note: Remember to replace your {HIGHLIGHT_WORD} via python string formatting with <span class="text-highlight">word</span> tags -->
-            <div class="market-data-card-conditional-wrapper">
-                <div class="body-description">{BODY_DESCRIPTION}</div>
-            </div>
-
-            <!-- Brand Handles / Web URL Call-out Footer metadata from image_54c4a2.jpg -->
+            <div class="body-description">{BODY_DESCRIPTION}</div>
             <div class="footer-meta">
-                <span class="url-text">www.yourchannel.com</span>
+                <span>NEPAL CENTRAL NEWS</span>
+                <span style="color:rgba(255,255,255,0.25);font-size:14px;letter-spacing:1px;">ncn.com.np</span>
             </div>
-
         </div>
-    </div>
 
+    </div>
 </body>
 
 </html>
