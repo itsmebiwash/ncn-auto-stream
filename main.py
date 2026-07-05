@@ -460,10 +460,8 @@ def run_mode_1_news():
                 if not os.path.exists(img_path) or os.path.getsize(img_path) < 5000:
                     print(f"    [Skip] Image generation failed for: {fname}"); continue
                 
-                # Format final Facebook caption (removed unwanted generic line)
-                full_caption = f"""Nepal Central News Update
-
-{headline}
+                # Format final Facebook caption
+                full_caption = f"""{headline}
 
 {caption_text}
 
