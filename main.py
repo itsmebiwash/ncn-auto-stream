@@ -292,50 +292,46 @@ def generate_html_card(headline, box1, box2, bg_image_url):
                 align-items: center;
                 text-align: center;
             }}
-            /* Floating vibrant capsules (replacing red boxes) */
+            /* Red Box Titles */
             .capsule-group {{
                 display: flex;
-                gap: 15px;
-                flex-wrap: wrap;
-                justify-content: center;
-                margin-bottom: 30px;
+                flex-direction: column;
+                align-items: center;
+                gap: 6px;
+                margin-top: -30px;
+                margin-bottom: 25px;
             }}
             .capsule {{
-                background: rgba(255, 59, 48, 0.9); /* Apple Red */
-                color: #fff;
-                font-size: 22px;
+                background: #d32f2f; /* Solid Red */
+                color: #ffffff;
+                font-size: 34px; /* Title ko bada kiya */
                 font-weight: 800;
                 text-transform: uppercase;
-                letter-spacing: 1.5px;
-                padding: 12px 28px;
-                border-radius: 100px; /* Pill shape */
-                box-shadow: 0 8px 25px rgba(255, 59, 48, 0.5), inset 0 2px 5px rgba(255,255,255,0.3);
-                border: 1px solid rgba(255, 255, 255, 0.3);
-            }}
-            .capsule-secondary {{
-                background: rgba(0, 122, 255, 0.9); /* Apple Blue */
-                box-shadow: 0 8px 25px rgba(0, 122, 255, 0.5), inset 0 2px 5px rgba(255,255,255,0.3);
+                letter-spacing: 1px;
+                padding: 10px 24px;
+                border-radius: 8px; /* Rectangular instead of pill */
+                box-shadow: 0 4px 15px rgba(211, 47, 47, 0.4);
             }}
             .headline {{
-                font-size: 48px;
-                font-weight: 800;
-                line-height: 1.35;
+                font-size: 28px; /* Description ko chhota kiya */
+                font-weight: 600;
+                line-height: 1.5;
                 color: #ffffff;
-                margin-bottom: 40px;
-                letter-spacing: -0.5px;
-                text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                margin-bottom: 30px;
+                letter-spacing: 0px;
+                text-shadow: 0 1px 5px rgba(0,0,0,0.3);
             }}
             .footer-divider {{
                 width: 100%;
                 height: 1px;
                 background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%);
-                margin-bottom: 25px;
+                margin-bottom: 20px;
             }}
             .footer {{
-                font-size: 22px;
+                font-size: 16px; /* Footer ko chhota kiya */
                 font-weight: 800;
                 color: rgba(255,255,255,0.7);
-                letter-spacing: 4px;
+                letter-spacing: 3px;
                 text-transform: uppercase;
             }}
             .footer span {{
@@ -352,7 +348,7 @@ def generate_html_card(headline, box1, box2, bg_image_url):
         <div class="liquid-glass-card">
             <div class="capsule-group">
                 <div class="capsule">{box1}</div>
-                <div class="capsule capsule-secondary">{box2}</div>
+                <div class="capsule">{box2}</div>
             </div>
             <div class="headline">{headline}</div>
             <div class="footer-divider"></div>
