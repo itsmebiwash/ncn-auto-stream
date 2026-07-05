@@ -347,15 +347,42 @@ def generate_html_card(headline, body, highlight, bg_image_url):
     """
     return html_content
 
+def get_page_access_token():
+    """Exchange User Access Token for Page Access Token."""
+    if not FB_PAGE_ID or not FB_PAGE_ACCESS_TOKEN:
+        return None
+    url = f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}"
+    params = {
+        "fields": "access_token",
+        "access_token": FB_PAGE_ACCESS_TOKEN
+    }
+    try:
+        res = requests.get(url, params=params, timeout=10)
+        data = res.json()
+        if "access_token" in data:
+            print(f"    [Facebook] Page Access Token fetched successfully!")
+            return data["access_token"]
+        else:
+            print(f"    [Facebook Token Error] {data}")
+            return None
+    except Exception as e:
+        print(f"    [Facebook Token Exception] {str(e)}")
+        return None
+
 def upload_to_facebook(image_path, caption):
     if not FB_PAGE_ID or not FB_PAGE_ACCESS_TOKEN:
         print("    [!] FB Credentials missing. Skipping Facebook upload.")
+        return False
+
+    page_token = get_page_access_token()
+    if not page_token:
+        print("    [!] Could not get Page Access Token. Skipping upload.")
         return False
         
     url = f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}/photos"
     payload = {
         'message': caption,
-        'access_token': FB_PAGE_ACCESS_TOKEN
+        'access_token': page_token
     }
     
     try:
