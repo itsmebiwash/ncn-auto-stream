@@ -187,7 +187,7 @@ def rewrite_to_template_rules(title, full_story):
     1. RED_BOX_1: A short, punchy, high-impact phrase summarizing the core subject (Strictly 4-7 words).
     2. RED_BOX_2: A secondary punchy phrase complementing the first (Strictly 2-5 words). Example: 'During National Crises'.
     3. HEADLINE: The full, detailed headline summarizing the news clearly and professionally (10-25 words).
-    4. CAPTION: A comprehensive, highly professional news report for Facebook, consisting of 3 to 4 detailed paragraphs (approx 150-200 words). NO EMOJIS. MUST read like a high-quality journalistic article.
+    4. CAPTION: A comprehensive, highly engaging, and catchy news report for Facebook, consisting of 3 to 4 detailed paragraphs (approx 150-200 words). NO EMOJIS. CRITICAL RULE: You must be strictly factual. Do NOT invent, exaggerate, or add any information outside of the provided article content. Keep the tone captivating but 100% grounded in the provided facts.
     5. IMAGE INTENT: If the news is about generic objects (bus, car, money, buildings, nature, abstract concepts), output 'PEXELS'. ONLY output 'ARTICLE' if the news focuses on a highly specific named person (e.g. a politician) or exact local event where a generic photo makes no sense.
     
     Original News Title: {title}
