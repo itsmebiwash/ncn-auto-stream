@@ -170,14 +170,15 @@ def generate_with_openrouter(prompt):
 
 def rewrite_to_template_rules(title, full_story):
     prompt = f"""
-    You are an expert Social Media Editor and News Summarizer. Read the following Nepali news and generate 5 specific text elements in professional English.
+    You are an expert, professional News Journalist. Read the following scraped text and generate 5 specific text elements.
+    If the text is gibberish, nonsensical (e.g., 'drone war torn thread' with no context), or not a real news article, output exactly: SKIP
     
     STRICT RULES:
-    1. HEADLINE: Catchy, punchy, Title Case, strictly 6 to 9 words MAXIMUM.
-    2. BODY: Core summary in EXACTLY ONE single sentence, strictly 22 to 25 words MAXIMUM. No bullets, no multiple periods.
+    1. HEADLINE: Journalistic, professional, Title Case, strictly 6 to 9 words MAXIMUM.
+    2. BODY: Core summary in EXACTLY ONE single sentence, strictly 22 to 25 words MAXIMUM. No bullets, no multiple periods. Write like a serious news anchor.
     3. HIGHLIGHT: Exactly one critical keyword from the BODY text to color-code.
-    4. CAPTION: A separate engaging social media description for Facebook, strictly between 40 to 50 words. Use emojis appropriately.
-    5. IMAGE INTENT: Decide the best image source based on context. If the news is about specific local individuals, local crime, or highly specific local politics, output 'ARTICLE'. If the news is about generic topics (climate change, economy, tech, nature, abstract concepts), output 'PEXELS'.
+    4. CAPTION: A separate, highly professional news brief for Facebook, strictly between 40 to 50 words. NO EMOJIS. MUST read like an actual news report.
+    5. IMAGE INTENT: If the news is about generic objects (bus, car, money, buildings, nature, abstract concepts), output 'PEXELS'. ONLY output 'ARTICLE' if the news focuses on a highly specific named person (e.g. a politician) or exact local event where a generic photo makes no sense.
     
     Original News Title: {title}
     Full Article Content: 
@@ -185,7 +186,7 @@ def rewrite_to_template_rules(title, full_story):
     {full_story}
     ---
     
-    Output Format (Strictly return ONLY these 5 lines):
+    Output Format (Strictly return ONLY these 5 lines, or SKIP):
     HEADLINE: [Insert headline here]
     BODY: [Insert single sentence here]
     HIGHLIGHT: [Insert the single keyword here]
@@ -235,7 +236,7 @@ def generate_html_card(headline, body, highlight, bg_image_url):
                 font-family: 'Poppins', sans-serif;
                 background-image: url('{bg_image_url}');
                 background-size: cover;
-                background-position: center;
+                background-position: center 20%;
                 display: flex;
                 flex-direction: column;
                 justify-content: flex-end;
@@ -385,9 +386,10 @@ def scrape_news():
     hti.output_path = OUTPUT_DIR
     
     max_articles_per_site = 5 
-    total_new_news = 0
     
     print(f"[+] Automated Facebook DevOps Scraper Started...")
+    
+    ready_to_post = []
     
     for site in TARGET_SITES:
         articles_found = 0
@@ -426,10 +428,6 @@ def scrape_news():
                 if not link_elem: continue
                 
                 full_link = urljoin(site['url'], link_elem['href'])
-                    
-                articles_found += 1
-                total_new_news += 1
-                scraped_history.add(title_text)
                 
                 print(f"    [Deep Scrape] Fetching full article & image...")
                 full_story_text, bg_img = fetch_full_article_text_and_image(full_link)
@@ -438,11 +436,18 @@ def scrape_news():
                 print(f"    [AI Rewriting] Processing context & translating...")
                 ai_ready_content = rewrite_to_template_rules(title_text, full_story_text)
                 
+                if ai_ready_content.strip() == "SKIP":
+                    print(f"    [AI Skip] AI determined this is gibberish or non-news: {title_text[:30]}...")
+                    continue
+                    
                 headline, body, highlight, caption, intent = parse_ai_output(ai_ready_content)
                 
                 if "All AI Engines Failed" in headline:
                     print("    [!] All AI engines failed. Skipping graphic generation.")
                     continue
+                    
+                articles_found += 1
+                scraped_history.add(title_text)
                         
                 print(f"    [Image Sourcing] Intent: {intent}")
                 bg_img_final = None
@@ -477,28 +482,39 @@ def scrape_news():
                 print(f"    [PNG Generated] Saving to output/{filename}...")
                 hti.screenshot(html_str=html_code, save_as=filename)
                 
-                # Facebook Upload & Archive
-                success = upload_to_facebook(img_path, caption)
+                ready_to_post.append((img_path, caption, filename))
                 
-                if success:
-                    print(f"    [Archive] Moving {filename} to posted/ folder...")
-                    archive_path = os.path.join(POSTED_DIR, filename)
-                    shutil.move(img_path, archive_path)
-                    
-                    delay_minutes = random.randint(1, 20)
-                    delay_seconds = delay_minutes * 60
-                    print(f"    [Anti-Spam] Sleeping for {delay_minutes} minutes before the next post to mimic human behavior...")
-                    time.sleep(delay_seconds)
-                else:
-                    time.sleep(2)
         except Exception as e:
             print(f"    [ERROR] Exception on {site['name']}: {e}")
         time.sleep(1)
         
-    if total_new_news == 0:
-        print("\n[-] No new articles found. Everything is up to date.")
+    if not ready_to_post:
+        print("\n[-] No new articles found or generated. Everything is up to date.")
     else:
-        print(f"\n[+] Pipeline Completed! {total_new_news} articles processed.")
+        print(f"\n[+] Generation complete! Found {len(ready_to_post)} images. Entering global 20-minute upload window...")
+        
+        # We want to randomly upload all images within a 20-minute (1200 seconds) window.
+        # Max average wait between posts to fit in 20 minutes:
+        max_total_wait = 1200
+        avg_wait = max(30, max_total_wait // len(ready_to_post))
+        
+        for i, (img_path, caption, filename) in enumerate(ready_to_post):
+            success = upload_to_facebook(img_path, caption)
+            if success:
+                print(f"    [Archive] Moving {filename} to posted/ folder...")
+                archive_path = os.path.join(POSTED_DIR, filename)
+                shutil.move(img_path, archive_path)
+            
+            if i < len(ready_to_post) - 1:
+                # Calculate a random delay that keeps us on track for the 20 minute window
+                delay_seconds = random.randint(30, avg_wait * 2)
+                delay_minutes = delay_seconds / 60.0
+                print(f"    [Global Anti-Spam] Sleeping for {delay_minutes:.1f} minutes before the next post in the queue...")
+                time.sleep(delay_seconds)
+            else:
+                time.sleep(2)
+                
+        print(f"\n[+] Pipeline Completed! {len(ready_to_post)} articles processed and uploaded.")
         
     save_history(scraped_history)
 
