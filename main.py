@@ -91,22 +91,58 @@ def flag_img_html(country_name, size=80):
     return ""
 
 TARGET_SITES = [
-    {"name": "Onlinekhabar", "url": "https://www.onlinekhabar.com/content/business",
-     "container_tag": "div",     "container_class": "ok-news-card", "title_tag": "h2"},
-    {"name": "Ekantipur",    "url": "https://ekantipur.com/news",
-     "container_tag": "article", "container_class": "normal",        "title_tag": "h2"},
-    {"name": "Ratopati",     "url": "https://ratopati.com/province/koshi",
-     "container_tag": "div",     "container_class": "item",           "title_tag": "h3"},
-    {"name": "Setopati",     "url": "https://setopati.com/social",
-     "container_tag": "div",     "container_class": "items",          "title_tag": "span"},
-    {"name": "KhojSamachar", "url": "https://khojsamachar.com/",
-     "container_tag": "article", "container_class": "post",           "title_tag": "h2"},
-    {"name": "TechPana",     "url": "https://techpana.com/",
-     "container_tag": "div",     "container_class": "item-details",   "title_tag": "h3"},
-    {"name": "RONBPost",     "url": "https://www.ronbpost.com/",
-     "container_tag": "article", "container_class": "post",           "title_tag": "h2"},
-    {"name": "BBCNews",      "url": "https://www.bbc.com/news/world",
-     "container_tag": "div",     "container_class": "sc-b8778340-3",  "title_tag": "h2"},
+    {"name": "OnlineKhabar", "url": "https://www.onlinekhabar.com/", "container_tag": "div", "container_class": "ok-news-card", "title_tag": "h2"},
+    {"name": "Ekantipur", "url": "https://ekantipur.com/news", "container_tag": "article", "container_class": "normal", "title_tag": "h2"},
+    {"name": "Ratopati", "url": "https://ratopati.com/", "container_tag": "div", "container_class": "item", "title_tag": "h3"},
+    {"name": "Setopati", "url": "https://setopati.com/", "container_tag": "div", "container_class": "items", "title_tag": "span"},
+    {"name": "NagarikNetwork", "url": "https://nagariknetwork.com/", "container_tag": "div", "title_tag": "h3"},
+    {"name": "NepalPress", "url": "https://nepalpress.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "AnnapurnaPost", "url": "https://annapurnapost.com/", "container_tag": "div", "title_tag": "h3"},
+    {"name": "NayaPatrika", "url": "https://nayapatrikadaily.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "ThahaKhabar", "url": "https://thahakhabar.com/", "container_tag": "div", "title_tag": "h3"},
+    {"name": "12Khari", "url": "https://12khari.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "UjyaaloOnline", "url": "https://ujyaaloonline.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "NepalKhabar", "url": "https://nepalkhabar.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "Khabarhub", "url": "https://khabarhub.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "Lokaantar", "url": "https://lokaantar.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "Ukeraa", "url": "https://ukeraa.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "Gorkhapatra", "url": "https://gorkhapatraonline.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "ImageKhabar", "url": "https://imagekhabar.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "News24Nepal", "url": "https://news24nepal.tv/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "NepalLive", "url": "https://nepallive.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "DeshSanchar", "url": "https://deshsanchar.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "MakaluKhabar", "url": "https://makalukhabar.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "RajdhaniDaily", "url": "https://rajdhanidaily.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "HiTimes", "url": "https://hitimes.com.np/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "Nepalipatra", "url": "https://nepalipatra.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "Janaboli", "url": "https://janaboli.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "MediaNP", "url": "https://medianp.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "OSNepal", "url": "https://osnepal.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "ArkoKhabar", "url": "https://arkokhabar.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "RadioNepal", "url": "https://radionepal.gov.np/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "RSSNepal", "url": "https://rssnepal.org.np/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "KathmanduPost", "url": "https://kathmandupost.com/", "container_tag": "article", "title_tag": "h3"},
+    {"name": "MyRepublica", "url": "https://myrepublica.nagariknetwork.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "RisingNepal", "url": "https://therisingnepal.org.np/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "NepaliTimes", "url": "https://nepalitimes.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "OnlineKhabarEng", "url": "https://english.onlinekhabar.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "Bizmandu", "url": "https://bizmandu.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "Clickmandu", "url": "https://clickmandu.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "Bizshala", "url": "https://bizshala.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "ArthikAbhiyan", "url": "https://arthikabhiyan.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "KarobarDaily", "url": "https://karobardaily.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "MeroLagani", "url": "https://merolagani.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "ShareSansar", "url": "https://sharesansar.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "NepaliPaisa", "url": "https://nepalipaisa.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "HamroKhelkud", "url": "https://hamrokhelkud.com/", "container_tag": "div", "title_tag": "h3"},
+    {"name": "KhelOnline", "url": "https://khelonline.com/", "container_tag": "div", "title_tag": "h3"},
+    {"name": "TechPana", "url": "https://techpana.com/", "container_tag": "div", "title_tag": "h3"},
+    {"name": "GadgetByte", "url": "https://gadgetbytenepal.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "TechLekh", "url": "https://techlekh.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "SwasthyaKhabar", "url": "https://swasthyakhabar.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "HakaHaki", "url": "https://hakahaki.org/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "RONBPost", "url": "https://www.ronbpost.com/", "container_tag": "article", "title_tag": "h2"},
+    {"name": "KhojSamachar", "url": "https://khojsamachar.com/", "container_tag": "article", "title_tag": "h2"},
 ]
 
 # ============================================================
@@ -287,8 +323,10 @@ STRICT RULES:
 1. RED_BOX_1: Short, punchy, high-impact phrase (4-7 words)
 2. RED_BOX_2: Secondary punchy phrase (2-5 words)
 3. HEADLINE: Full, detailed headline (10-25 words)
-4. CAPTION: Highly engaging, catchy news report for Facebook (3-4 paragraphs, 150-200 words). Strictly factual. NO EMOJIS. No exaggeration.
-5. IMAGE_INTENT: PEXELS or ARTICLE
+4. CAPTION: A well-written, highly detailed paragraph (70-120 words) explaining the news thoroughly. No emojis. Be factual.
+5. HASHTAGS: 3 to 5 relevant hashtags based on the news (e.g. #Politics #Nepal #Update).
+6. TOPIC: One word topic describing the news (e.g. political, tech, sports, business, social, entertainment).
+7. IMAGE_INTENT: PEXELS or ARTICLE
 
 Original Title: {title}
 Article Content:
@@ -296,23 +334,27 @@ Article Content:
 {full_story}
 ---
 
-Output Format (ONLY these 5 lines, or SKIP):
+Output Format (ONLY these 7 lines, or SKIP):
 RED_BOX_1: [phrase]
 RED_BOX_2: [phrase]
 HEADLINE: [headline]
 CAPTION: [caption]
+HASHTAGS: [hashtags]
+TOPIC: [topic]
 IMAGE_INTENT: [ARTICLE or PEXELS]"""
     return ai_generate(prompt)
 
 def parse_news_ai(output):
-    box1, box2, headline, caption, intent = "BREAKING NEWS", "UPDATE", "News Update", "", "PEXELS"
+    box1, box2, headline, caption, hashtags, topic, intent = "BREAKING NEWS", "UPDATE", "News Update", "", "#News #NepalCentralNews", "news", "PEXELS"
     for line in output.split('\n'):
         if line.startswith('RED_BOX_1:'):   box1    = line.replace('RED_BOX_1:', '').strip()
         elif line.startswith('RED_BOX_2:'): box2    = line.replace('RED_BOX_2:', '').strip()
         elif line.startswith('HEADLINE:'):  headline = line.replace('HEADLINE:', '').strip()
         elif line.startswith('CAPTION:'):   caption  = line.replace('CAPTION:', '').strip()
+        elif line.startswith('HASHTAGS:'):  hashtags = line.replace('HASHTAGS:', '').strip()
+        elif line.startswith('TOPIC:'):     topic    = line.replace('TOPIC:', '').strip()
         elif line.startswith('IMAGE_INTENT:'): intent = line.replace('IMAGE_INTENT:', '').strip().upper()
-    return headline, box1, box2, caption, intent
+    return headline, box1, box2, caption, hashtags, topic, intent
 
 def generate_news_card(headline, box1, box2, bg_image_url):
     return f"""<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
@@ -394,7 +436,7 @@ def run_mode_1_news():
                 if not ai_out: print("    [Skip] AI failed."); continue
                 if ai_out.strip() == "SKIP": print("    [Skip] AI flagged as non-news."); continue
 
-                headline, box1, box2, caption, intent = parse_news_ai(ai_out)
+                headline, box1, box2, caption_text, hashtags, topic, intent = parse_news_ai(ai_out)
                 articles_found += 1
                 history.add(title_text)
 
@@ -415,7 +457,20 @@ def run_mode_1_news():
                 img_path = os.path.join(OUTPUT_DIR, fname)
                 if not os.path.exists(img_path) or os.path.getsize(img_path) < 5000:
                     print(f"    [Skip] Image generation failed for: {fname}"); continue
-                ready_to_post.append((img_path, caption, fname))
+                
+                # Format final Facebook caption
+                full_caption = f"""Nepal Central News Update
+
+{headline}
+
+{caption_text}
+
+Credit: {site['name']}
+
+Follow Nepal Central News for daily {topic.lower()} updates, critical social issues, and news from Nepal and around the world!
+{hashtags} #NepalCentralNews"""
+
+                ready_to_post.append((img_path, full_caption, fname))
 
         except Exception as e:
             print(f"    [ERROR] {site['name']}: {e}")
