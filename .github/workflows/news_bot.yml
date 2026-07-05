@@ -33,6 +33,11 @@ jobs:
         run: |
           pip install requests beautifulsoup4 html2image lxml
 
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Run NCN Universal Sync Wrapper
         env:
           GITHUB_ACTIONS:       "true"
