@@ -8,6 +8,9 @@ on:
 jobs:
   run-scraper:
     runs-on: ubuntu-latest
+    concurrency:
+      group: news-scraper-singleton
+      cancel-in-progress: false
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
