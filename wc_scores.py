@@ -338,7 +338,7 @@ def upload_to_facebook(image_path, caption):
 # MAIN BOT LOGIC
 # ============================================================
 def run_wc_bot():
-    print("\n[SCORE BOT] Starting — All Competitions")
+    print("\n[SCORE BOT] Starting - All Competitions")
 
     # Guard: API key required
     if not FOOTBALL_API_KEY:

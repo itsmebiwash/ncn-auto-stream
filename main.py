@@ -385,7 +385,7 @@ def generate_news_card(headline, box1, box2, bg_image_url, category, short_summa
     
     # Replace variables
     html = html.replace("{IMAGE_URL}", bg_image_url)
-    html = html.replace("layout-news", layout_class) # The default in the HTML is layout-news
+    html = html.replace('<div class="master-canvas layout-news">', f'<div class="master-canvas {layout_class}">')
     html = html.replace("{CATEGORY_BADGE}", f"{box1} | {box2}")
     html = html.replace("{HEADLINE_TITLE}", headline)
     html = html.replace("{BODY_DESCRIPTION}", short_summary)
@@ -1130,24 +1130,24 @@ def main():
     now = get_nepal_now()
 
     print(f"\n{'='*60}")
-    print(f"  Nepal Central News — Multi-Content Engine")
+    print(f"  Nepal Central News - Multi-Content Engine")
     print(f"  Nepal Time: {now.strftime('%I:%M %p, %b %d %Y')}  |  Hour: {hour}")
     print(f"{'='*60}")
 
     if 10 <= hour <= 12:
-        print("  → Dispatching: MODE 2 — Gold & Silver Rates")
+        print("  -> Dispatching: MODE 2 - Gold & Silver Rates")
         run_mode_2_gold()
     elif 13 <= hour <= 16:
-        print("  → Dispatching: MODE 3 — On This Day")
+        print("  -> Dispatching: MODE 3 - On This Day")
         run_mode_3_otd()
     elif 17 <= hour <= 20:
-        print("  → Dispatching: MODE 4 — Pop Culture Trivia")
+        print("  -> Dispatching: MODE 4 - Pop Culture Trivia")
         run_mode_4_trivia()
     elif hour >= 21:
-        print("  → Dispatching: MODE 5 — NASA APOD")
+        print("  -> Dispatching: MODE 5 - NASA APOD")
         run_mode_5_nasa()
     else:
-        print("  → Dispatching: MODE 1 — News Scraper")
+        print("  -> Dispatching: MODE 1 - News Scraper")
         run_mode_1_news()
 
     print(f"\n{'='*60}")
