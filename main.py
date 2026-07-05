@@ -155,16 +155,20 @@ def get_nepal_now():
     return datetime.now(timezone.utc) + NEPAL_TZ
 
 def load_history():
-    if os.path.exists(HISTORY_FILE):
+    HISTORY_TXT = "data/scraped_history.txt"
+    if os.path.exists(HISTORY_TXT):
         try:
-            with open(HISTORY_FILE, "r", encoding="utf-8") as f: return set(json.load(f))
+            with open(HISTORY_TXT, "r", encoding="utf-8") as f:
+                return set(line.strip() for line in f if line.strip())
         except: return set()
     return set()
 
 def save_history(history_set):
+    HISTORY_TXT = "data/scraped_history.txt"
     if not os.path.exists("data"): os.makedirs("data")
-    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(list(history_set)[-1000:], f, ensure_ascii=False, indent=4)
+    with open(HISTORY_TXT, "w", encoding="utf-8") as f:
+        for item in list(history_set)[-1000:]:
+            f.write(f"{item.strip()}\n")
 
 def cleanup_old_files():
     cutoff = time.time() - (48 * 3600)
@@ -189,7 +193,11 @@ def init_dirs():
         if not os.path.exists(d): os.makedirs(d)
 
 def make_hti(width=1080, height=1350):
-    h = Html2Image(size=(width, height), browser_executable='google-chrome')
+    termux_chrome = "/data/data/com.termux/files/usr/bin/chromium-browser"
+    if os.path.exists(termux_chrome):
+        h = Html2Image(size=(width, height), browser_executable=termux_chrome)
+    else:
+        h = Html2Image(size=(width, height), browser_executable='google-chrome')
     h.output_path = OUTPUT_DIR
     h.browser.flags = [
         '--no-sandbox', '--disable-setuid-sandbox',

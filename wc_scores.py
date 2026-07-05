@@ -79,23 +79,28 @@ def flag_html(team_name, css_class="flag-img"):
 # ============================================================
 # HISTORY (deduplicate posts)
 # ============================================================
+WC_HISTORY_TXT = "data/wc_posted_history.txt"
+
 def load_wc_history():
-    if os.path.exists(WC_HISTORY_FILE):
+    history = {}
+    if os.path.exists(WC_HISTORY_TXT):
         try:
-            with open(WC_HISTORY_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, dict):
-                    return data
+            with open(WC_HISTORY_TXT, "r", encoding="utf-8") as f:
+                for line in f:
+                    if ":::" in line:
+                        k, v = line.strip().split(":::", 1)
+                        history[k] = v
         except Exception:
             pass
-    return {}
+    return history
 
 def save_wc_history(history):
     try:
         if not os.path.exists("data"):
             os.makedirs("data")
-        with open(WC_HISTORY_FILE, "w", encoding="utf-8") as f:
-            json.dump(history, f, ensure_ascii=False, indent=2)
+        with open(WC_HISTORY_TXT, "w", encoding="utf-8") as f:
+            for k, v in history.items():
+                f.write(f"{k}:::{v}\n")
     except Exception as e:
         print(f"  [History Save Error] {e}")
 
@@ -460,7 +465,11 @@ def run_wc_bot():
         if not os.path.exists(d):
             os.makedirs(d)
 
-    hti = Html2Image(size=(1080, 1080), browser_executable="google-chrome")
+    termux_chrome = "/data/data/com.termux/files/usr/bin/chromium-browser"
+    if os.path.exists(termux_chrome):
+        hti = Html2Image(size=(1080, 1080), browser_executable=termux_chrome)
+    else:
+        hti = Html2Image(size=(1080, 1080), browser_executable="google-chrome")
     hti.output_path = OUTPUT_DIR
     hti.browser.flags = ["--no-sandbox", "--disable-setuid-sandbox",
                          "--allow-file-access-from-files", "--disable-dev-shm-usage"]
