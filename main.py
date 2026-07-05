@@ -324,9 +324,10 @@ STRICT RULES:
 2. RED_BOX_2: Secondary punchy phrase (2-5 words)
 3. HEADLINE: Full, detailed headline (10-25 words)
 4. CAPTION: A well-written, highly detailed paragraph (70-120 words) explaining the news thoroughly. No emojis. Be factual.
-5. HASHTAGS: 3 to 5 relevant hashtags based on the news (e.g. #Politics #Nepal #Update).
-6. CATEGORY: You MUST choose exactly ONE of these options: POLITICS, BUSINESS, TECH, SPORTS, ENTERTAINMENT, GENERAL
-7. IMAGE_INTENT: PEXELS or ARTICLE
+5. SHORT_SUMMARY: A very short 1-2 sentence excerpt (15-25 words) that will be displayed directly ON the image.
+6. HASHTAGS: 3 to 5 relevant hashtags based on the news (e.g. #Politics #Nepal #Update).
+7. CATEGORY: You MUST choose exactly ONE of these options: POLITICS, BUSINESS, TECH, SPORTS, ENTERTAINMENT, GENERAL
+8. IMAGE_INTENT: PEXELS or ARTICLE
 
 Original Title: {title}
 Article Content:
@@ -334,85 +335,64 @@ Article Content:
 {full_story}
 ---
 
-Output Format (ONLY these 7 lines, or SKIP):
+Output Format (ONLY these 8 lines, or SKIP):
 RED_BOX_1: [phrase]
 RED_BOX_2: [phrase]
 HEADLINE: [headline]
 CAPTION: [caption]
+SHORT_SUMMARY: [summary]
 HASHTAGS: [hashtags]
 CATEGORY: [category]
 IMAGE_INTENT: [ARTICLE or PEXELS]"""
     return ai_generate(prompt)
 
 def parse_news_ai(output):
-    box1, box2, headline, caption, hashtags, category, intent = "BREAKING NEWS", "UPDATE", "News Update", "", "#News #NepalCentralNews", "GENERAL", "PEXELS"
+    box1, box2, headline, caption, short_summary, hashtags, category, intent = "BREAKING NEWS", "UPDATE", "News Update", "", "", "#News #NepalCentralNews", "GENERAL", "PEXELS"
     for line in output.split('\n'):
-        if line.startswith('RED_BOX_1:'):   box1     = line.replace('RED_BOX_1:', '').strip()
-        elif line.startswith('RED_BOX_2:'): box2     = line.replace('RED_BOX_2:', '').strip()
-        elif line.startswith('HEADLINE:'):  headline  = line.replace('HEADLINE:', '').strip()
-        elif line.startswith('CAPTION:'):   caption   = line.replace('CAPTION:', '').strip()
-        elif line.startswith('HASHTAGS:'):  hashtags  = line.replace('HASHTAGS:', '').strip()
-        elif line.startswith('CATEGORY:'):  category  = line.replace('CATEGORY:', '').strip().upper()
-        elif line.startswith('IMAGE_INTENT:'): intent = line.replace('IMAGE_INTENT:', '').strip().upper()
+        if line.startswith('RED_BOX_1:'):     box1          = line.replace('RED_BOX_1:', '').strip()
+        elif line.startswith('RED_BOX_2:'):   box2          = line.replace('RED_BOX_2:', '').strip()
+        elif line.startswith('HEADLINE:'):    headline      = line.replace('HEADLINE:', '').strip()
+        elif line.startswith('CAPTION:'):     caption       = line.replace('CAPTION:', '').strip()
+        elif line.startswith('SHORT_SUMMARY:'): short_summary = line.replace('SHORT_SUMMARY:', '').strip()
+        elif line.startswith('HASHTAGS:'):    hashtags      = line.replace('HASHTAGS:', '').strip()
+        elif line.startswith('CATEGORY:'):    category      = line.replace('CATEGORY:', '').strip().upper()
+        elif line.startswith('IMAGE_INTENT:'): intent       = line.replace('IMAGE_INTENT:', '').strip().upper()
     
     valid = ["POLITICS", "BUSINESS", "TECH", "SPORTS", "ENTERTAINMENT", "GENERAL"]
     if category not in valid: category = "GENERAL"
-    return headline, box1, box2, caption, hashtags, category, intent
+    if not short_summary: short_summary = headline
+    return headline, box1, box2, caption, short_summary, hashtags, category, intent
 
-def generate_news_card(headline, box1, box2, bg_image_url, category):
-    theme_colors = {
-        "POLITICS":      {"main": "#d32f2f", "shadow": "rgba(211,47,47,0.45)"},
-        "BUSINESS":      {"main": "#d4af37", "shadow": "rgba(212,175,55,0.45)"},
-        "TECH":          {"main": "#0a84ff", "shadow": "rgba(10,132,255,0.45)"},
-        "SPORTS":        {"main": "#30d158", "shadow": "rgba(48,209,88,0.45)"},
-        "ENTERTAINMENT": {"main": "#bf5af2", "shadow": "rgba(191,90,242,0.45)"},
-        "GENERAL":       {"main": "#d32f2f", "shadow": "rgba(211,47,47,0.45)"}
+def generate_news_card(headline, box1, box2, bg_image_url, category, short_summary):
+    # Map AI category to template class
+    layout_map = {
+        "POLITICS": "layout-news",
+        "GENERAL": "layout-news",
+        "TECH": "layout-tech",
+        "BUSINESS": "layout-market",
+        "SPORTS": "layout-health",
+        "ENTERTAINMENT": "layout-health"
     }
-    c_main = theme_colors.get(category, theme_colors["GENERAL"])["main"]
-    c_shadow = theme_colors.get(category, theme_colors["GENERAL"])["shadow"]
-
-    return f"""<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
-<style>
-*{{box-sizing:border-box;margin:0;padding:0}}
-body{{width:1080px;height:1350px;font-family:'Inter',sans-serif;
-background-image:url('{bg_image_url}');background-size:cover;background-position:center;
-display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}}
-.vignette{{position:absolute;top:0;left:0;right:0;bottom:0;
-background:radial-gradient(circle at center,transparent 30%,rgba(0,0,0,0.4) 100%);z-index:1}}
-.logo-wrap{{position:relative;z-index:10;margin:40px;align-self:flex-start;
-background:rgba(0,0,0,0.2);backdrop-filter:blur(15px) saturate(120%);
--webkit-backdrop-filter:blur(15px) saturate(120%);border:1px solid rgba(255,255,255,0.15);
-border-radius:20px;padding:12px 20px;box-shadow:0 8px 32px rgba(0,0,0,0.2)}}
-.logo-wrap img{{height:70px;width:auto}}
-.glass-card{{position:relative;z-index:10;margin:40px;margin-top:auto;
-background:rgba(15,15,20,0.72);backdrop-filter:blur(35px) saturate(200%);
--webkit-backdrop-filter:blur(35px) saturate(200%);border:1px solid rgba(255,255,255,0.15);
-border-top:1.5px solid rgba(255,255,255,0.35);border-radius:40px;
-padding:55px 50px 40px;box-shadow:0 30px 60px rgba(0,0,0,0.55),inset 0 2px 2px rgba(255,255,255,0.08);
-display:flex;flex-direction:column;align-items:center;text-align:center;gap:22px}}
-.box-group{{display:flex;flex-direction:column;align-items:center;gap:8px}}
-.category-box{{background:{c_main};color:#fff;font-size:30px;font-weight:800;
-text-transform:uppercase;letter-spacing:1px;padding:10px 26px;border-radius:8px;
-box-shadow:0 6px 20px {c_shadow};display:inline-block}}
-.headline{{font-size:30px;font-weight:700;line-height:1.5;color:#fff;
-text-shadow:0 1px 5px rgba(0,0,0,0.3)}}
-.divider{{width:100%;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent)}}
-.footer{{font-size:15px;font-weight:800;color:rgba(255,255,255,0.55);
-letter-spacing:3px;text-transform:uppercase}}
-.footer span{{color:{c_main}}}
-</style></head><body>
-<div class="vignette"></div>
-<div class="logo-wrap"><img src="file:///{LOGO_HTML}" alt="Logo"></div>
-<div class="glass-card">
-  <div class="box-group">
-    <div class="category-box">{box1}</div>
-    <div class="category-box">{box2}</div>
-  </div>
-  <div class="headline">{headline}</div>
-  <div class="divider"></div>
-  <div class="footer">NEPAL CENTRAL <span>NEWS</span></div>
-</div></body></html>"""
+    layout_class = layout_map.get(category, "layout-news")
+    
+    template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "news_template.html")
+    try:
+        with open(template_path, 'r', encoding='utf-8') as f:
+            html = f.read()
+    except Exception as e:
+        print(f"Error loading template: {e}")
+        return ""
+    
+    # Replace variables
+    html = html.replace("{IMAGE_URL}", bg_image_url)
+    html = html.replace("layout-news", layout_class) # The default in the HTML is layout-news
+    html = html.replace("{CATEGORY_BADGE}", f"{box1} | {box2}")
+    html = html.replace("{HEADLINE_TITLE}", headline)
+    html = html.replace("{BODY_DESCRIPTION}", short_summary)
+    html = html.replace("../../assets/logo.png", f"file:///{LOGO_HTML}")
+    html = html.replace("www.yourchannel.com", "Nepal Central News")
+    
+    return html
 
 def run_mode_1_news():
     print("\n[MODE 1] NEWS SCRAPER")
@@ -450,7 +430,7 @@ def run_mode_1_news():
                 if not ai_out: print("    [Skip] AI failed."); continue
                 if ai_out.strip() == "SKIP": print("    [Skip] AI flagged as non-news."); continue
 
-                headline, box1, box2, caption_text, hashtags, category, intent = parse_news_ai(ai_out)
+                headline, box1, box2, caption_text, short_summary, hashtags, category, intent = parse_news_ai(ai_out)
                 articles_found += 1
                 history.add(title_text)
 
@@ -463,7 +443,7 @@ def run_mode_1_news():
                 if not bg_final:
                     bg_final = "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=1080&h=1350&fit=crop"
 
-                html = generate_news_card(headline, box1, box2, bg_final, category)
+                html = generate_news_card(headline, box1, box2, bg_final, category, short_summary)
                 safe = re.sub(r'[^a-zA-Z0-9]', '_', headline)[:50]
                 fname = f"news_{safe}_{int(time.time())}.png"
                 hti.screenshot(html_str=html, save_as=fname)
