@@ -194,11 +194,11 @@ def rewrite_to_template_rules(title, full_story):
     IMAGE_INTENT: [ARTICLE or PEXELS]
     """
     
-    output = generate_with_gemini(prompt)
-    if output: return output
     output = generate_with_groq(prompt)
     if output: return output
     output = generate_with_openrouter(prompt)
+    if output: return output
+    output = generate_with_gemini(prompt)
     if output: return output
     
     return "HEADLINE: All AI Engines Failed\nBODY: Could not generate content because all 3 APIs returned an error.\nHIGHLIGHT: None\nCAPTION: We are currently experiencing technical difficulties processing the news content. Stay tuned for updates!\nIMAGE_INTENT: PEXELS"
