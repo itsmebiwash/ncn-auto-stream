@@ -1144,6 +1144,7 @@ def main():
     print(f"  Nepal Time: {now.strftime('%I:%M %p, %b %d %Y')}  |  Hour: {hour}")
     print(f"{'='*60}")
 
+    # 1. Run Special Modes (they self-cancel if already posted today)
     if 10 <= hour <= 12:
         print("  -> Dispatching: MODE 2 - Gold & Silver Rates")
         run_mode_2_gold()
@@ -1156,9 +1157,10 @@ def main():
     elif hour >= 21:
         print("  -> Dispatching: MODE 5 - NASA APOD")
         run_mode_5_nasa()
-    else:
-        print("  -> Dispatching: MODE 1 - News Scraper")
-        run_mode_1_news()
+        
+    # 2. ALWAYS run the News Scraper so news is posted throughout the whole day
+    print("  -> Dispatching: MODE 1 - News Scraper")
+    run_mode_1_news()
 
     print(f"\n{'='*60}")
     print("  Engine Complete!")
