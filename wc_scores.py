@@ -48,17 +48,18 @@ def save_wc_history(history):
         json.dump(history, f, ensure_ascii=False, indent=2)
 
 def fetch_matches(status_filter=None, date_from=None, date_to=None):
-    params = "competitions/WC/matches?"
-    if status_filter: params += f"status={status_filter}&"
-    if date_from: params += f"dateFrom={date_from}&dateTo={date_to or date_from}&"
+    """Fetch from ALL competitions, not just WC."""
+    url = "https://api.football-data.org/v4/matches?"
+    if status_filter: url += f"status={status_filter}&"
+    if date_from: url += f"dateFrom={date_from}&dateTo={date_to or date_from}&"
     try:
-        r = requests.get(f"{BASE_URL}/{params}", headers=HEADERS_FOOTBALL, timeout=10)
+        r = requests.get(url, headers=HEADERS_FOOTBALL, timeout=10)
         if r.status_code == 200: return r.json().get("matches", [])
-        print(f"  [API] Status {r.status_code}")
+        print(f"  [API] Status {r.status_code}: {r.text[:200]}")
     except Exception as e: print(f"  [API Error] {e}")
     return []
 
-def generate_score_html(home, away, home_sc, away_sc, status, minute, stage):
+def generate_score_html(home, away, home_sc, away_sc, status, minute, stage, competition_name="Football"):
     home_flag = get_flag(home)
     away_flag = get_flag(away)
     is_live = status in ("IN_PLAY", "PAUSED", "HALFTIME")
@@ -155,7 +156,7 @@ body {{
 <div class="glow2"></div>
 <div class="card">
     <div class="top-row">
-        <div class="wc-badge">&#127942; FIFA World Cup 2026</div>
+        <div class="wc-badge">&#127942; {competition_name}</div>
         <div class="status-badge">{badge}</div>
     </div>
     <div class="stage">{stage}</div>
@@ -182,39 +183,39 @@ body {{
 </body>
 </html>"""
 
-def build_caption(home, away, home_sc, away_sc, status, minute, stage):
+def build_caption(home, away, home_sc, away_sc, status, minute, stage, competition_name="Football"):
     hf, af = get_flag(home), get_flag(away)
+    comp_label = competition_name
     if status in ("IN_PLAY", "PAUSED"):
-        return f"""LIVE UPDATE | FIFA World Cup 2026
+        return f"""LIVE UPDATE | {comp_label}
 
 {hf} {home} {home_sc} - {away_sc} {away} {af}
 Minute: {minute}' | Stage: {stage}
 
-The action is live at the FIFA World Cup 2026! Follow Nepal Central News for real-time score updates throughout the tournament.
+The action is live! Follow Nepal Central News for real-time updates throughout the match.
 
-#WorldCup2026 #FIFA #FIFAWorldCup #{home.replace(' ','')} #{away.replace(' ','')}"""
+#Football #{competition_name.replace(' ','')} #{home.replace(' ','')} #{away.replace(' ','')}"""
     elif status == "HALFTIME":
-        return f"""HALF TIME | FIFA World Cup 2026
+        return f"""HALF TIME | {comp_label}
 
 {hf} {home} {home_sc} - {away_sc} {away} {af}
 Stage: {stage}
 
-The referee has blown the whistle for half time. Stay tuned for the second half! Nepal Central News keeps you updated live.
+The referee has blown the whistle for half time! Nepal Central News keeps you updated live.
 
-#WorldCup2026 #HalfTime #FIFA #{home.replace(' ','')} #{away.replace(' ','')}"""
+#Football #HalfTime #{competition_name.replace(' ','')} #{home.replace(' ','')} #{away.replace(' ','')}"""
     elif status == "FINISHED":
         if home_sc > away_sc: result = f"{home} WIN!"
         elif away_sc > home_sc: result = f"{away} WIN!"
         else: result = "IT'S A DRAW!"
-        return f"""FULL TIME | FIFA World Cup 2026
+        return f"""FULL TIME | {comp_label}
 
 {hf} {home} {home_sc} - {away_sc} {away} {af}
-RESULT: {result}
-Stage: {stage}
+RESULT: {result} | Stage: {stage}
 
-That's the final whistle! Nepal Central News brings you the complete result from the FIFA World Cup 2026.
+That's the final whistle! Nepal Central News brings you the complete result.
 
-#WorldCup2026 #FIFAWorldCup #FullTime #{home.replace(' ','')} #{away.replace(' ','')}"""
+#Football #FullTime #{competition_name.replace(' ','')} #{home.replace(' ','')} #{away.replace(' ','')}"""
     return ""
 
 def get_page_access_token():
@@ -263,12 +264,13 @@ def run_wc_bot():
         status = match['status']
         minute = match.get('minute')
         stage = match.get('stage', 'Group Stage').replace('_', ' ').title()
+        competition_name = match.get('competition', {}).get('name', 'Football')
         mid = str(match['id'])
         key = f"{mid}_{home_sc}_{away_sc}_{status}"
         if history.get(mid) == key: print(f"  [Skip] {home} vs {away} unchanged."); continue
-        print(f"  [LIVE] {home} {home_sc}-{away_sc} {away}")
-        html = generate_score_html(home, away, home_sc, away_sc, status, minute, stage)
-        caption = build_caption(home, away, home_sc, away_sc, status, minute, stage)
+        print(f"  [LIVE] [{competition_name}] {home} {home_sc}-{away_sc} {away}")
+        html = generate_score_html(home, away, home_sc, away_sc, status, minute, stage, competition_name)
+        caption = build_caption(home, away, home_sc, away_sc, status, minute, stage, competition_name)
         fname = f"wc_live_{mid}.png"
         hti.screenshot(html_str=html, save_as=fname)
         upload_to_facebook(os.path.join(OUTPUT_DIR, fname), caption)
@@ -284,12 +286,13 @@ def run_wc_bot():
         home_sc = match['score']['fullTime']['home']
         away_sc = match['score']['fullTime']['away']
         stage = match.get('stage', 'Group Stage').replace('_', ' ').title()
+        competition_name = match.get('competition', {}).get('name', 'Football')
         mid = str(match['id'])
         ft_key = f"{mid}_FT_{home_sc}_{away_sc}"
         if history.get(mid + "_ft") == ft_key: print(f"  [Skip] {home} vs {away} FT already posted."); continue
-        print(f"  [FT] {home} {home_sc}-{away_sc} {away}")
-        html = generate_score_html(home, away, home_sc, away_sc, "FINISHED", None, stage)
-        caption = build_caption(home, away, home_sc, away_sc, "FINISHED", None, stage)
+        print(f"  [FT] [{competition_name}] {home} {home_sc}-{away_sc} {away}")
+        html = generate_score_html(home, away, home_sc, away_sc, "FINISHED", None, stage, competition_name)
+        caption = build_caption(home, away, home_sc, away_sc, "FINISHED", None, stage, competition_name)
         fname = f"wc_ft_{mid}.png"
         hti.screenshot(html_str=html, save_as=fname)
         upload_to_facebook(os.path.join(OUTPUT_DIR, fname), caption)
