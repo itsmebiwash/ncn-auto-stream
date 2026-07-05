@@ -53,8 +53,42 @@ POSTED_DIR   = os.path.join(OUTPUT_DIR, "posted")
 ASSETS_DIR   = "assets"
 LOGO_PATH    = os.path.abspath(os.path.join(ASSETS_DIR, "logo.png"))
 LOGO_HTML    = LOGO_PATH.replace('\\', '/')
+FLAGS_DIR    = os.path.join(os.path.abspath(ASSETS_DIR), "Flag PNG")
 
 NEPAL_TZ     = timedelta(hours=5, minutes=45)
+
+# Country name → ISO 3166-1 alpha-2 code for PNG flag lookup
+COUNTRY_CODE_MAP = {
+    "Argentina":"ar","Brazil":"br","France":"fr","Germany":"de","Spain":"es",
+    "England":"gb-eng","Portugal":"pt","Netherlands":"nl","Belgium":"be","Italy":"it",
+    "Croatia":"hr","Uruguay":"uy","Mexico":"mx","United States":"us","Canada":"ca",
+    "Morocco":"ma","Senegal":"sn","Japan":"jp","South Korea":"kr","Australia":"au",
+    "Saudi Arabia":"sa","Iran":"ir","Switzerland":"ch","Denmark":"dk","Poland":"pl",
+    "Serbia":"rs","Ukraine":"ua","Colombia":"co","Ecuador":"ec","Peru":"pe",
+    "Chile":"cl","Venezuela":"ve","Egypt":"eg","Nigeria":"ng","Cameroon":"cm",
+    "Ghana":"gh","Norway":"no","Sweden":"se","Turkey":"tr","Austria":"at",
+    "Czech Republic":"cz","Hungary":"hu","Slovakia":"sk","Romania":"ro",
+    "Scotland":"gb-sct","Wales":"gb-wls","Ireland":"ie","Greece":"gr","Algeria":"dz",
+    "Tunisia":"tn","Mali":"ml","Ivory Coast":"ci","New Zealand":"nz","Qatar":"qa",
+    "Indonesia":"id","Cuba":"cu","Bolivia":"bo","Panama":"pa","Honduras":"hn",
+    "Costa Rica":"cr","El Salvador":"sv","Guatemala":"gt","Jamaica":"jm",
+    "Paraguay":"py","Nepal":"np","India":"in","Pakistan":"pk","Sri Lanka":"lk",
+    "China":"cn","Russia":"ru","United Arab Emirates":"ae","Kenya":"ke",
+}
+
+def get_flag_path(country_name):
+    """Return absolute file:// path to flag PNG, or None if not found."""
+    code = COUNTRY_CODE_MAP.get(country_name, "").lower()
+    if code:
+        path = os.path.join(FLAGS_DIR, f"{code}.png").replace('\\', '/')
+        if os.path.exists(path): return path
+    return None
+
+def flag_img_html(country_name, size=80):
+    """Return an <img> HTML tag for a country flag PNG, or empty string."""
+    p = get_flag_path(country_name)
+    if p: return f'<img src="file:///{p}" alt="{country_name}" style="height:{size}px;width:auto;border-radius:4px;">'
+    return ""
 
 TARGET_SITES = [
     {"name": "Onlinekhabar", "url": "https://www.onlinekhabar.com/content/business",

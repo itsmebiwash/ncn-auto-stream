@@ -16,21 +16,31 @@ BASE_URL = "https://api.football-data.org/v4"
 OUTPUT_DIR = "wc_output"
 POSTED_DIR = "wc_posted"
 WC_HISTORY_FILE = "data/wc_posted_history.json"
+ASSETS_DIR = os.path.abspath("assets")
+FLAGS_DIR = os.path.join(ASSETS_DIR, "Flag PNG")
 
-FLAG_MAP = {
-    "Argentina":"🇦🇷","Brazil":"🇧🇷","France":"🇫🇷","Germany":"🇩🇪",
-    "Spain":"🇪🇸","England":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","Portugal":"🇵🇹","Netherlands":"🇳🇱",
-    "Belgium":"🇧🇪","Italy":"🇮🇹","Croatia":"🇭🇷","Uruguay":"🇺🇾",
-    "Mexico":"🇲🇽","United States":"🇺🇸","Canada":"🇨🇦","Morocco":"🇲🇦",
-    "Senegal":"🇸🇳","Japan":"🇯🇵","South Korea":"🇰🇷","Australia":"🇦🇺",
-    "Saudi Arabia":"🇸🇦","Switzerland":"🇨🇭","Denmark":"🇩🇰","Poland":"🇵🇱",
-    "Serbia":"🇷🇸","Colombia":"🇨🇴","Ecuador":"🇪🇨","Peru":"🇵🇪",
-    "Chile":"🇨🇱","Egypt":"🇪🇬","Nigeria":"🇳🇬","Cameroon":"🇨🇲",
-    "Ghana":"🇬🇭","Norway":"🇳🇴","Sweden":"🇸🇪","Turkey":"🇹🇷",
-    "Austria":"🇦🇹","Romania":"🇷🇴","Greece":"🇬🇷","Algeria":"🇩🇿",
-    "Tunisia":"🇹🇳","Morocco":"🇲🇦","New Zealand":"🇳🇿","Qatar":"🇶🇦",
-    "Panama":"🇵🇦","Honduras":"🇭🇳","Costa Rica":"🇨🇷","Jamaica":"🇯🇲",
-    "Cuba":"🇨🇺","Bolivia":"🇧🇴","Venezuela":"🇻🇪","Indonesia":"🇮🇩",
+# Map team name → ISO 3166-1 alpha-2 country code (for PNG flags)
+COUNTRY_CODE_MAP = {
+    "Argentina": "ar", "Brazil": "br", "France": "fr", "Germany": "de",
+    "Spain": "es", "England": "gb-eng", "Portugal": "pt", "Netherlands": "nl",
+    "Belgium": "be", "Italy": "it", "Croatia": "hr", "Uruguay": "uy",
+    "Mexico": "mx", "United States": "us", "Canada": "ca", "Morocco": "ma",
+    "Senegal": "sn", "Japan": "jp", "South Korea": "kr", "Australia": "au",
+    "Saudi Arabia": "sa", "Iran": "ir", "Switzerland": "ch", "Denmark": "dk",
+    "Poland": "pl", "Serbia": "rs", "Ukraine": "ua", "Colombia": "co",
+    "Ecuador": "ec", "Peru": "pe", "Chile": "cl", "Venezuela": "ve",
+    "Egypt": "eg", "Nigeria": "ng", "Cameroon": "cm", "Ghana": "gh",
+    "Norway": "no", "Sweden": "se", "Turkey": "tr", "Austria": "at",
+    "Czech Republic": "cz", "Hungary": "hu", "Slovakia": "sk", "Romania": "ro",
+    "Scotland": "gb-sct", "Wales": "gb-wls", "Ireland": "ie", "Greece": "gr",
+    "Algeria": "dz", "Tunisia": "tn", "Mali": "ml", "Ivory Coast": "ci",
+    "New Zealand": "nz", "Qatar": "qa", "Indonesia": "id", "Cuba": "cu",
+    "Bolivia": "bo", "Panama": "pa", "Honduras": "hn", "Costa Rica": "cr",
+    "El Salvador": "sv", "Guatemala": "gt", "Jamaica": "jm", "Paraguay": "py",
+    "United Arab Emirates": "ae", "Russia": "ru", "China": "cn",
+    "India": "in", "Pakistan": "pk", "Nepal": "np", "Sri Lanka": "lk",
+    "Kenya": "ke", "Ethiopia": "et", "Zimbabwe": "zw", "Zambia": "zm",
+    "Concaf": "us",  # fallback
 }
 
 def get_flag(team): return FLAG_MAP.get(team, "🏴")
@@ -60,8 +70,11 @@ def fetch_matches(status_filter=None, date_from=None, date_to=None):
     return []
 
 def generate_score_html(home, away, home_sc, away_sc, status, minute, stage, competition_name="Football"):
-    home_flag = get_flag(home)
-    away_flag = get_flag(away)
+    home_flag_path = get_flag_path(home)
+    away_flag_path = get_flag_path(away)
+    # Use PNG img tag if path found, otherwise fallback to team initials
+    home_flag_html = f'<img src="file:///{home_flag_path}" alt="{home}" class="flag-img">' if home_flag_path else f'<div class="flag-txt">{home[:3].upper()}</div>'
+    away_flag_html = f'<img src="file:///{away_flag_path}" alt="{away}" class="flag-img">' if away_flag_path else f'<div class="flag-txt">{away[:3].upper()}</div>'
     is_live = status in ("IN_PLAY", "PAUSED", "HALFTIME")
     is_ft = status == "FINISHED"
 
@@ -133,7 +146,12 @@ body {{
 .scoreboard {{ display:flex; align-items:center; justify-content:space-between;
     width:100%; gap: 10px; }}
 .team {{ display:flex; flex-direction:column; align-items:center; gap:18px; flex:1; }}
-.flag {{ font-size: 100px; line-height:1; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.6)); }}
+.flag-img {{ width:130px; height:auto; object-fit:contain;
+    filter: drop-shadow(0 8px 20px rgba(0,0,0,0.7)); border-radius: 6px; }}
+.flag-txt {{ width:130px; height:86px; border-radius:8px;
+    background:rgba(255,255,255,0.1); border:2px solid rgba(255,255,255,0.2);
+    display:flex;align-items:center;justify-content:center;
+    font-size:32px;font-weight:900;color:rgba(255,255,255,0.6); }}
 .tname {{ font-size: 30px; font-weight: 800; color:#fff; text-align:center; }}
 .score-mid {{ display:flex; flex-direction:column; align-items:center; gap:10px; }}
 .score {{ font-size: 110px; font-weight: 900; color:{score_color};
@@ -162,7 +180,7 @@ body {{
     <div class="stage">{stage}</div>
     <div class="scoreboard">
         <div class="team">
-            <div class="flag">{home_flag}</div>
+            {home_flag_html}
             <div class="tname">{home}</div>
         </div>
         <div class="score-mid">
@@ -170,7 +188,7 @@ body {{
             {minute_html}
         </div>
         <div class="team">
-            <div class="flag">{away_flag}</div>
+            {away_flag_html}
             <div class="tname">{away}</div>
         </div>
     </div>

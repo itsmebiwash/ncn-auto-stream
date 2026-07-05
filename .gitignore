@@ -3,9 +3,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Output
-output/
+# Output images only (not assets)
+output/*.png
+wc_output/*.png
 *.png
+!assets/**/*.png
+!assets/*.png
 
 # Secrets & Local Batches
 run.bat
