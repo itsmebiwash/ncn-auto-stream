@@ -240,121 +240,123 @@ def generate_html_card(headline, box1, box2, bg_image_url):
                 width: 1080px;
                 height: 1350px;
                 font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-                background-color: #f2f2f7;
-                display: flex;
-                flex-direction: column;
-                position: relative;
-                overflow: hidden;
-            }}
-            .image-section {{
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 75%;
                 background-image: url('{bg_image_url}');
                 background-size: cover;
                 background-position: center;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                position: relative;
+                overflow: hidden;
+            }}
+            /* Subtle dark vignette to make text pop */
+            .vignette {{
+                position: absolute;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: radial-gradient(circle at center, transparent 30%, rgba(0,0,0,0.4) 100%);
                 z-index: 1;
             }}
-            .image-fade {{
-                position: absolute;
-                bottom: 0;
-                left: 0;
-                width: 100%;
-                height: 40%;
-                background: linear-gradient(to bottom, rgba(242, 242, 247, 0) 0%, rgba(242, 242, 247, 1) 100%);
-                z-index: 2;
-            }}
             .logo-wrapper {{
-                position: absolute;
-                top: 40px;
-                left: 40px;
+                position: relative;
                 z-index: 10;
-                background: rgba(255, 255, 255, 0.2);
-                backdrop-filter: blur(20px);
-                -webkit-backdrop-filter: blur(20px);
-                border: 1px solid rgba(255, 255, 255, 0.4);
-                border-radius: 24px;
-                padding: 15px 25px;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+                margin: 40px;
+                align-self: flex-start;
+                background: rgba(0, 0, 0, 0.2);
+                backdrop-filter: blur(15px) saturate(120%);
+                -webkit-backdrop-filter: blur(15px) saturate(120%);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 20px;
+                padding: 12px 20px;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.2);
             }}
             .logo-wrapper img {{
-                height: 80px;
+                height: 70px;
                 width: auto;
             }}
-            .glass-container {{
-                position: absolute;
-                bottom: 50px;
-                left: 50px;
-                right: 50px;
-                z-index: 5;
-                background: rgba(255, 255, 255, 0.75);
-                backdrop-filter: blur(40px) saturate(200%);
-                -webkit-backdrop-filter: blur(40px) saturate(200%);
-                border: 1px solid rgba(255, 255, 255, 0.6);
+            /* The main Liquid Glass Container */
+            .liquid-glass-card {{
+                position: relative;
+                z-index: 10;
+                margin: 40px;
+                margin-top: auto;
+                background: rgba(25, 25, 30, 0.65); /* Darker translucent for dramatic iOS contrast */
+                backdrop-filter: blur(35px) saturate(200%);
+                -webkit-backdrop-filter: blur(35px) saturate(200%);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                border-top: 1px solid rgba(255, 255, 255, 0.4); /* Top highlight */
                 border-radius: 40px;
-                padding: 50px;
-                box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15), inset 0 2px 0 rgba(255, 255, 255, 0.8);
+                padding: 60px 50px 40px 50px;
+                box-shadow: 0 30px 60px rgba(0,0,0,0.5), inset 0 2px 2px rgba(255,255,255,0.1);
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 text-align: center;
             }}
-            .red-box-group {{
+            /* Floating vibrant capsules (replacing red boxes) */
+            .capsule-group {{
                 display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 8px;
-                margin-top: -90px;
+                gap: 15px;
+                flex-wrap: wrap;
+                justify-content: center;
                 margin-bottom: 30px;
-                z-index: 10;
             }}
-            .red-box {{
-                background: linear-gradient(135deg, #d32f2f, #b71c1c);
-                color: #ffffff;
-                font-size: 26px;
+            .capsule {{
+                background: rgba(255, 59, 48, 0.9); /* Apple Red */
+                color: #fff;
+                font-size: 22px;
                 font-weight: 800;
                 text-transform: uppercase;
                 letter-spacing: 1.5px;
-                padding: 12px 30px;
-                border-radius: 12px;
-                box-shadow: 0 10px 25px rgba(183, 28, 28, 0.4);
-                display: inline-block;
+                padding: 12px 28px;
+                border-radius: 100px; /* Pill shape */
+                box-shadow: 0 8px 25px rgba(255, 59, 48, 0.5), inset 0 2px 5px rgba(255,255,255,0.3);
+                border: 1px solid rgba(255, 255, 255, 0.3);
+            }}
+            .capsule-secondary {{
+                background: rgba(0, 122, 255, 0.9); /* Apple Blue */
+                box-shadow: 0 8px 25px rgba(0, 122, 255, 0.5), inset 0 2px 5px rgba(255,255,255,0.3);
             }}
             .headline {{
-                font-size: 42px;
+                font-size: 48px;
                 font-weight: 800;
-                line-height: 1.3;
-                color: #1c1c1e;
-                margin-bottom: 20px;
+                line-height: 1.35;
+                color: #ffffff;
+                margin-bottom: 40px;
                 letter-spacing: -0.5px;
+                text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            }}
+            .footer-divider {{
+                width: 100%;
+                height: 1px;
+                background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%);
+                margin-bottom: 25px;
             }}
             .footer {{
-                margin-top: 20px;
-                font-size: 20px;
+                font-size: 22px;
                 font-weight: 800;
-                color: #d32f2f;
-                letter-spacing: 2px;
+                color: rgba(255,255,255,0.7);
+                letter-spacing: 4px;
                 text-transform: uppercase;
+            }}
+            .footer span {{
+                color: #ff3b30; /* Highlighted text */
             }}
         </style>
     </head>
     <body>
-        <div class="image-section">
-            <div class="image-fade"></div>
-        </div>
+        <div class="vignette"></div>
         <div class="logo-wrapper">
             <img src="file:///{LOGO_HTML_PATH}" alt="Logo">
         </div>
         
-        <div class="glass-container">
-            <div class="red-box-group">
-                <div class="red-box">{box1}</div>
-                <div class="red-box">{box2}</div>
+        <div class="liquid-glass-card">
+            <div class="capsule-group">
+                <div class="capsule">{box1}</div>
+                <div class="capsule capsule-secondary">{box2}</div>
             </div>
             <div class="headline">{headline}</div>
-            <div class="footer">IN-DEPTH STORY</div>
+            <div class="footer-divider"></div>
+            <div class="footer">NEPAL CENTRAL <span>NEWS</span></div>
         </div>
     </body>
     </html>
