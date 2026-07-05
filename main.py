@@ -636,6 +636,16 @@ def run_mode_2_gold():
     time.sleep(2)
     img_path = os.path.join(OUTPUT_DIR, fname)
 
+    caption = f"""Today's Nepal Gold & Silver Rates - {date_str}
+
+Fine Gold (24K Shuddha Suna): Rs. {fine} per tola
+Tejabi Gold (Tejabi Suna): Rs. {tej} per tola
+Silver (Chandi): Rs. {silv} per tola
+
+Rates sourced from FENEGOSIDA. These are the official bullion prices for today.
+
+#NepalGoldRate #SunaKoMolya #GoldPrice #Nepal #NepalCentralNews"""
+
     if os.path.exists(img_path) and os.path.getsize(img_path) > 5000:
         if post_to_facebook(img_path, caption):
             try:

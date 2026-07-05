@@ -335,30 +335,13 @@ def upload_to_facebook(image_path, caption):
         return False
 
 # ============================================================
-# MAIN BOT LOGIC
+# CORE PROCESSOR — one pass of live + finished matches
 # ============================================================
-def run_wc_bot():
-    print("\n[SCORE BOT] Starting - All Competitions")
-
-    # Guard: API key required
-    if not FOOTBALL_API_KEY:
-        print("[!] FOOTBALL_API_KEY not set. Exiting."); return
-
-    # Setup dirs
-    for d in [OUTPUT_DIR, POSTED_DIR, "data"]:
-        if not os.path.exists(d):
-            os.makedirs(d)
-
-    # Setup html2image
-    hti = Html2Image(size=(1080, 1080), browser_executable="google-chrome")
-    hti.output_path = OUTPUT_DIR
-    hti.browser.flags = ["--no-sandbox", "--disable-setuid-sandbox",
-                         "--allow-file-access-from-files", "--disable-dev-shm-usage"]
-
-    history     = load_wc_history()
-    posted_any  = False
-    now_utc     = datetime.now(timezone.utc)
-    today       = now_utc.strftime("%Y-%m-%d")
+def process_matches(hti, history):
+    """Single pass: check live + finished matches and post. Returns True if anything was posted."""
+    posted_any = False
+    now_utc    = datetime.now(timezone.utc)
+    today      = now_utc.strftime("%Y-%m-%d")
 
     # ── 1. LIVE MATCHES ──────────────────────────────────────
     print("\n[->] Checking LIVE matches...")
@@ -376,25 +359,24 @@ def run_wc_bot():
 
             home_sc, away_sc = get_live_score(match)
 
-            # Dedup key: changes every time score or status changes
+            # Key changes every time score OR status changes -> triggers a new post
             key = f"{mid}_{home_sc}_{away_sc}_{status}"
             if history.get(f"live_{mid}") == key:
-                print(f"  [Skip] {home} vs {away} — no change."); continue
+                print(f"  [Skip] {home} vs {away} - no change ({home_sc}-{away_sc} {status})"); continue
 
-            print(f"  [LIVE] [{comp}] {home} {home_sc}-{away_sc} {away} ({status})")
+            print(f"  [LIVE] [{comp}] {home} {home_sc}-{away_sc} {away} ({status} {minute})")
 
-            html    = generate_score_html(home, away, home_sc, away_sc, status, minute, stage, comp)
-            caption = build_caption(home, away, home_sc, away_sc, status, minute, stage, comp)
-            fname   = f"live_{mid}.png"
+            html     = generate_score_html(home, away, home_sc, away_sc, status, minute, stage, comp)
+            caption  = build_caption(home, away, home_sc, away_sc, status, minute, stage, comp)
+            fname    = f"live_{mid}.png"
             img_path = os.path.join(OUTPUT_DIR, fname)
 
             hti.screenshot(html_str=html, save_as=fname)
-            time.sleep(2)  # give Chrome time to write file
+            time.sleep(2)
 
             if upload_to_facebook(img_path, caption):
                 history[f"live_{mid}"] = key
                 posted_any = True
-                # Archive
                 try:
                     shutil.move(img_path, os.path.join(POSTED_DIR, fname))
                 except Exception:
@@ -416,38 +398,35 @@ def run_wc_bot():
             comp    = match.get("competition", {}).get("name", "Football")
             mid     = str(match["id"])
 
-            score = match.get("score", {}).get("fullTime", {})
+            score   = match.get("score", {}).get("fullTime", {})
             home_sc = score.get("home")
             away_sc = score.get("away")
 
-            # Skip if scores are missing/null
             if home_sc is None or away_sc is None:
-                print(f"  [Skip] {home} vs {away} — score data missing."); continue
+                print(f"  [Skip] {home} vs {away} - score data missing."); continue
 
             ft_key = f"{mid}_FT_{home_sc}_{away_sc}"
             if history.get(f"ft_{mid}") == ft_key:
                 print(f"  [Skip] {home} vs {away} FT already posted."); continue
 
-            # Only post FT if match ended recently (within ~4 hours = 240 min)
-            # to avoid re-posting very old results on re-runs
+            # Skip very old results unless we've never seen this match at all
             utc_date = match.get("utcDate", "")
             if utc_date:
                 try:
-                    match_dt = datetime.fromisoformat(utc_date.replace("Z", "+00:00"))
+                    match_dt  = datetime.fromisoformat(utc_date.replace("Z", "+00:00"))
                     hours_ago = (now_utc - match_dt).total_seconds() / 3600
-                    if hours_ago > 6:  # match started > 6h ago, likely already posted
-                        # Only skip if we've seen this match before in any form
+                    if hours_ago > 6:
                         if any(f"live_{mid}" in k or f"ft_{mid}" in k for k in history):
-                            print(f"  [Skip] {home} vs {away} — old result, already handled.")
+                            print(f"  [Skip] {home} vs {away} - old result, already handled.")
                             continue
                 except Exception:
                     pass
 
             print(f"  [FT] [{comp}] {home} {home_sc}-{away_sc} {away}")
 
-            html    = generate_score_html(home, away, home_sc, away_sc, "FINISHED", None, stage, comp)
-            caption = build_caption(home, away, home_sc, away_sc, "FINISHED", None, stage, comp)
-            fname   = f"ft_{mid}.png"
+            html     = generate_score_html(home, away, home_sc, away_sc, "FINISHED", None, stage, comp)
+            caption  = build_caption(home, away, home_sc, away_sc, "FINISHED", None, stage, comp)
+            fname    = f"ft_{mid}.png"
             img_path = os.path.join(OUTPUT_DIR, fname)
 
             hti.screenshot(html_str=html, save_as=fname)
@@ -465,10 +444,60 @@ def run_wc_bot():
         except Exception as e:
             print(f"  [Match Error] {e}")
 
+    return posted_any, len(live_matches)
+
+
+# ============================================================
+# MAIN BOT LOGIC — with internal live-polling loop
+# ============================================================
+def run_wc_bot():
+    print("\n[SCORE BOT] Starting - All Competitions")
+
+    if not FOOTBALL_API_KEY:
+        print("[!] FOOTBALL_API_KEY not set. Exiting."); return
+
+    for d in [OUTPUT_DIR, POSTED_DIR, "data"]:
+        if not os.path.exists(d):
+            os.makedirs(d)
+
+    hti = Html2Image(size=(1080, 1080), browser_executable="google-chrome")
+    hti.output_path = OUTPUT_DIR
+    hti.browser.flags = ["--no-sandbox", "--disable-setuid-sandbox",
+                         "--allow-file-access-from-files", "--disable-dev-shm-usage"]
+
+    history = load_wc_history()
+
+    # ─── FIRST PASS ────────────────────────────────────────────
+    posted_any, live_count = process_matches(hti, history)
+    save_wc_history(history)
+
+    # ─── LIVE POLLING LOOP ─────────────────────────────────────
+    # If live matches exist, keep polling every 5 min for up to 110 min
+    # This catches every goal/status change in near real-time regardless
+    # of how often GitHub Actions triggers (every 30 min).
+    if live_count > 0:
+        POLL_INTERVAL_SEC = 5 * 60   # 5 minutes
+        MAX_LIVE_DURATION = 110 * 60 # 110 minutes max loop time (full match + buffer)
+        elapsed = 0
+
+        print(f"\n[LOOP] {live_count} live match(es) detected. Polling every 5 min for up to 110 min...")
+
+        while elapsed < MAX_LIVE_DURATION:
+            time.sleep(POLL_INTERVAL_SEC)
+            elapsed += POLL_INTERVAL_SEC
+
+            print(f"\n[POLL] +{elapsed//60}m - re-checking matches...")
+            history = load_wc_history()  # reload in case other runs saved state
+            _, current_live = process_matches(hti, history)
+            save_wc_history(history)
+
+            if current_live == 0:
+                print("[LOOP] No more live matches. Exiting loop.")
+                break
+
     if not posted_any:
         print("\n[--] Nothing new to post.")
 
-    save_wc_history(history)
     print("\n[SCORE BOT] Done!")
 
 
