@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Output
+output/
+*.png
+
+# Secrets & Local Batches
+run.bat
+
+# OS
+.DS_Store
+Thumbs.db

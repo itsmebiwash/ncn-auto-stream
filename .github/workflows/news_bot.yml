@@ -1,0 +1,44 @@
+name: Automated News Scraper & Facebook Poster
+
+on:
+  schedule:
+    - cron: '0 */2 * * *' # Runs every 2 hours
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install System Dependencies for Headless Chrome
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser fonts-liberation fonts-noto-color-emoji
+
+      - name: Install Python Dependencies
+        run: |
+          pip install requests beautifulsoup4 html2image
+
+      - name: Run Scraper Pipeline
+        run: python main.py
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_ACCESS_TOKEN: ${{ secrets.FB_PAGE_ACCESS_TOKEN }}
+
+      - name: Commit Updated Scraped History
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action Bot"
+          git add data/scraped_history.json
+          git commit -m "chore: update scraped history [skip ci]" || echo "No changes to commit"
+          git push
