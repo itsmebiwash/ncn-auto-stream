@@ -2,8 +2,12 @@ name: Automated News Scraper & Facebook Poster
 
 on:
   schedule:
-    - cron: '*/30 * * * *'  # Every 30 minutes
-  workflow_dispatch:
+    # Runs 3 times during Nepal night (10PM, 1AM, 4AM NPT = 16:15, 19:15, 22:15 UTC)
+    # ONLY runs if phone/laptop has been offline for 25+ min (heartbeat check inside run_sync.py)
+    - cron: '15 16 * * *'   # 10:00 PM Nepal Time
+    - cron: '15 19 * * *'   # 01:00 AM Nepal Time
+    - cron: '15 22 * * *'   # 04:00 AM Nepal Time
+  workflow_dispatch:        # Manual trigger still works anytime
 
 permissions:
   contents: write
