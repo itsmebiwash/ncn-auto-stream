@@ -15,6 +15,7 @@ from bs4 import BeautifulSoup
 from difflib import SequenceMatcher
 from html2image import Html2Image
 import urllib.parse
+from urllib.parse import urljoin
 from PIL import Image
 from datetime import datetime, timezone, timedelta
 
