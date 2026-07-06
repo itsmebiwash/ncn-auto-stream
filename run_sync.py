@@ -1,11 +1,15 @@
 import subprocess
 import time
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+HISTORY_FILE = os.path.join(SCRIPT_DIR, "data", "scraped_history.txt")
+DASHBOARD_FILE = os.path.join(SCRIPT_DIR, "dashboard_stats.txt")
 
 def run_cmd(cmd, check=False):
     print(f"\n> {cmd}")
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=SCRIPT_DIR)
     if result.stdout:
         print(result.stdout.strip())
     if result.stderr:
@@ -14,119 +18,130 @@ def run_cmd(cmd, check=False):
         print(f"[!] Command failed with code {result.returncode}")
     return result.returncode
 
+def count_history_lines():
+    """Count lines in scraped_history.txt as a proxy for total posts ever."""
+    try:
+        if os.path.exists(HISTORY_FILE):
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                return sum(1 for l in f if l.strip())
+    except Exception:
+        pass
+    return 0
+
+def get_nepal_time_str():
+    nepal_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=45)
+    return nepal_now.strftime("%Y-%m-%d %I:%M %p")
+
+def write_dashboard(env_str, duration, posts_before, posts_after, had_new_state):
+    posts_this_run = max(0, posts_after - posts_before)
+    next_run_dt    = datetime.now() + timedelta(minutes=15)
+    next_run_str   = next_run_dt.strftime("%I:%M %p")
+
+    # Reset if older than 24h
+    if os.path.exists(DASHBOARD_FILE):
+        if time.time() - os.path.getmtime(DASHBOARD_FILE) > 86400:
+            os.remove(DASHBOARD_FILE)
+
+    line = (
+        f"[{get_nepal_time_str()}] "
+        f"Source: {env_str} | "
+        f"Duration: {duration:.0f}s | "
+        f"Posts this run: {posts_this_run} | "
+        f"Total posts (all-time): {posts_after} | "
+        f"State synced: {'YES' if had_new_state else 'NO'} | "
+        f"Next scrap: ~{next_run_str}\n"
+    )
+
+    with open(DASHBOARD_FILE, "a", encoding="utf-8") as f:
+        f.write(line)
+
+    print(f"\n  📊 Dashboard: {line.strip()}")
+    print(f"  ⏰ Next scheduled run: ~{next_run_str}")
+
 def main():
-    print("="*60)
-    print("  NCN Auto-Sync & Run Wrapper")
-    print("="*60)
+    start_time = time.time()
+    env_str = "GitHub Cloud" if os.environ.get("GITHUB_ACTIONS") == "true" else "Local Laptop"
 
-    # 0. If running on GitHub Actions, check heartbeat to save minutes
+    print("=" * 60)
+    print(f"  NCN Auto-Sync & Run Wrapper  [{env_str}]")
+    print(f"  Nepal Time: {get_nepal_time_str()}")
+    print("=" * 60)
+
+    # 0. GitHub Actions: check heartbeat — skip if laptop is active
     if os.environ.get("GITHUB_ACTIONS") == "true":
-        print("\n[0/4] Checking last heartbeat...")
-        if os.path.exists("data/last_heartbeat.txt"):
-            with open("data/last_heartbeat.txt", "r") as f:
-                last_time_str = f.read().strip()
-                try:
-                    last_time = datetime.fromisoformat(last_time_str)
-                    now_utc = datetime.now(timezone.utc)
-                    diff_minutes = (now_utc - last_time).total_seconds() / 60.0
-                    print(f"  [-] Last heartbeat was {diff_minutes:.1f} minutes ago.")
-                    if diff_minutes < 25:
-                        print("  [✓] Local device is active! Skipping GitHub run to save minutes.")
-                        return
-                except Exception:
-                    pass
+        print("\n[0/5] Checking last heartbeat...")
+        hb_path = os.path.join(SCRIPT_DIR, "data", "last_heartbeat.txt")
+        if os.path.exists(hb_path):
+            try:
+                with open(hb_path, "r") as f:
+                    last_time = datetime.fromisoformat(f.read().strip())
+                diff_minutes = (datetime.now(timezone.utc) - last_time).total_seconds() / 60.0
+                print(f"  Last heartbeat: {diff_minutes:.1f} min ago.")
+                if diff_minutes < 25:
+                    print("  [✓] Local device is active! GitHub skipping run.")
+                    return
+            except Exception:
+                pass
 
-    # 1. Pull latest state from GitHub to avoid posting duplicates
-    print("\n[1/4] Syncing state from GitHub...")
+    # 1. Pull latest state
+    print("\n[1/5] Syncing state from GitHub...")
     run_cmd("git pull --rebase")
 
-    # 2. CLAIM THE LOCK: Update Heartbeat and push immediately so other devices don't start
-    print("\n[2/4] Claiming execution lock (updating heartbeat)...")
-    if not os.path.exists("data"):
-        os.makedirs("data")
-    now_utc = datetime.now(timezone.utc)
-    with open("data/last_heartbeat.txt", "w") as f:
-        f.write(now_utc.isoformat())
-    
+    # Snapshot history count BEFORE running
+    posts_before = count_history_lines()
+
+    # 2. Claim heartbeat lock
+    print("\n[2/5] Claiming execution lock...")
+    data_dir = os.path.join(SCRIPT_DIR, "data")
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
+    with open(os.path.join(data_dir, "last_heartbeat.txt"), "w") as f:
+        f.write(datetime.now(timezone.utc).isoformat())
+
     run_cmd("git add data/last_heartbeat.txt")
-    status = subprocess.run("git status --porcelain", shell=True, capture_output=True, text=True)
-    if "data/last_heartbeat.txt" in status.stdout:
+    status_chk = subprocess.run("git status --porcelain", shell=True, capture_output=True, text=True, cwd=SCRIPT_DIR)
+    if "last_heartbeat.txt" in status_chk.stdout:
         run_cmd('git config user.name "github-actions[bot]"')
         run_cmd('git config user.email "github-actions[bot]@users.noreply.github.com"')
         run_cmd('git commit -m "chore: claim execution lock [skip ci]"')
         run_cmd("git push")
 
-    # 3. Run Main Content Engine
-    print("\n[3/4] Running Main Engine (News, Gold, NASA, etc.)...")
+    # 3. Main Content Engine
+    print("\n[3/5] Running Main Engine (News, Gold, NASA, NEPSE etc.)...")
+    run_cmd(f'"{SCRIPT_DIR}\\..".replace("..","")')  # cd safety
     run_cmd("python main.py")
 
-    # 4. Run Football Scores Engine
-    print("\n[4/4] Running WC Scores Engine...")
+    # 4. Football/WC Scores Engine
+    print("\n[4/5] Running WC Scores Engine...")
     run_cmd("python wc_scores.py")
 
-    # 5. Push updated state back to GitHub
-    print("\n[5/5] Pushing updated history to GitHub...")
-    run_cmd("git add data/scraped_history.txt data/wc_posted_history.txt")
+    # 5. Push updated state
+    print("\n[5/5] Pushing state to GitHub...")
+    run_cmd("git add data/scraped_history.txt data/wc_posted_history.txt data/wc_posted_history.json")
     
-    # Check if there are changes to commit
-    status = subprocess.run("git status --porcelain", shell=True, capture_output=True, text=True)
-    
-    posts_made = status.stdout.count('scraped_history.txt') + status.stdout.count('wc_posted_history.txt')
-    if "data/" in status.stdout:
+    status = subprocess.run("git status --porcelain", shell=True, capture_output=True, text=True, cwd=SCRIPT_DIR)
+    had_new_state = "data/" in status.stdout
+
+    if had_new_state:
         run_cmd('git commit -m "chore: sync state from local device [skip ci]"')
-        
-        # Try to push, if it fails due to remote changes during our run, pull and push again
         push_res = run_cmd("git push")
         if push_res != 0:
-            print("\n[!] Push failed. Remote changed. Rebasing and trying again...")
+            print("\n[!] Push failed. Rebasing...")
             run_cmd("git pull --rebase")
             run_cmd("git push")
     else:
-        print("  [-] No state changes to push.")
+        print("  [-] No new state to push.")
 
-    # 6. Log Dashboard Stats
-    end_time   = time.time()
-    duration   = end_time - start_time
-    env_str    = "GitHub Cloud" if os.environ.get("GITHUB_ACTIONS") == "true" else "Local Laptop"
-    
-    # Absolute path → always in the Scrapper folder regardless of CWD
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    log_file   = os.path.join(script_dir, "dashboard_stats.txt")
+    # Snapshot history count AFTER
+    posts_after = count_history_lines()
 
-    # Count how many items were added to history (proxy for posts made)
-    posts_this_run = 0
-    hist_file = os.path.join(script_dir, "data", "scraped_history.txt")
-    if os.path.exists(hist_file):
-        # diff between start and now — use line count delta (rough estimate)
-        posts_this_run = status.stdout.count("scraped_history") if "scraped_history" in status.stdout else 0
+    # 6. Write Dashboard Stats
+    duration = time.time() - start_time
+    write_dashboard(env_str, duration, posts_before, posts_after, had_new_state)
 
-    # Next run: 15 minutes from now
-    from datetime import timedelta
-    next_run_dt = datetime.now() + timedelta(minutes=15)
-    next_run_str = next_run_dt.strftime("%I:%M %p")
-
-    # Reset log if older than 24h
-    if os.path.exists(log_file):
-        if time.time() - os.path.getmtime(log_file) > 86400:
-            os.remove(log_file)
-
-    line = (
-        f"[{datetime.now().strftime('%Y-%m-%d %I:%M %p')}] "
-        f"Ran on: {env_str} | "
-        f"Duration: {duration:.0f}s | "
-        f"State synced: {'YES' if 'data/' in status.stdout else 'NO'} | "
-        f"Next run: ~{next_run_str}\n"
-    )
-
-    with open(log_file, "a", encoding="utf-8") as f:
-        f.write(line)
-
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("  Sync Complete!")
-    print(f"  Next scheduled run: ~{next_run_str}")
-    print("="*60)
+    print("=" * 60)
 
 if __name__ == "__main__":
-    start_time = time.time()
     main()
-
