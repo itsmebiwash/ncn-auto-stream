@@ -692,6 +692,130 @@ Rates sourced from FENEGOSIDA. These are the official bullion prices for today.
         print("  [!] Image generation failed or file is too small.")
 
 # ============================================================
+# MODE 6 — NEPSE (Market Share Dashboard)
+# ============================================================
+def fetch_nepse_summary():
+    try:
+        r = requests.get("https://www.sharesansar.com/category/nepse-news", headers=HEADERS, timeout=15, verify=False)
+        soup = BeautifulSoup(r.text, 'html.parser')
+        for p in soup.find_all('p'):
+            if 'The NEPSE Index closed at' in p.text:
+                return p.text.strip()
+    except Exception as e:
+        print(f"  [NEPSE Scrape Error] {e}")
+    return None
+
+def parse_nepse_ai(text):
+    prompt = f"""Extract the NEPSE details from this text and return EXACTLY 4 lines.
+Text: {text}
+
+Format:
+INDEX: [Index Value]
+CHANGE_PT: [Point Change]
+CHANGE_PCT: [Percentage Change]
+STATUS: [UP or DOWN]"""
+    res = ai_generate(prompt)
+    if not res: return None, None, None, None
+    index, chg_pt, chg_pct, status = "N/A", "0", "0%", "UP"
+    for line in res.split('\n'):
+        if line.startswith('INDEX:'): index = line.replace('INDEX:', '').strip()
+        elif line.startswith('CHANGE_PT:'): chg_pt = line.replace('CHANGE_PT:', '').strip()
+        elif line.startswith('CHANGE_PCT:'): chg_pct = line.replace('CHANGE_PCT:', '').strip()
+        elif line.startswith('STATUS:'): status = line.replace('STATUS:', '').strip().upper()
+    return index, chg_pt, chg_pct, status
+
+def generate_nepse_card(index, chg_pt, chg_pct, status, date_str):
+    color = "#00e676" if status == "UP" else "#ff3d00"
+    arrow = "▲" if status == "UP" else "▼"
+    return f"""<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{width:1080px;height:1350px;font-family:'Inter',sans-serif;
+background:linear-gradient(135deg,#0a0f1a 0%,#05080f 100%);
+display:flex;flex-direction:column;align-items:center;justify-content:center;
+position:relative;overflow:hidden}}
+.glow{{position:absolute;width:800px;height:800px;border-radius:50%;
+background:radial-gradient(circle,{color}22 0%,transparent 70%);
+top:40%;left:50%;transform:translate(-50%,-50%);z-index:0}}
+.logo-wrap{{position:absolute;top:40px;left:40px;z-index:10;
+background:rgba(0,0,0,0.4);backdrop-filter:blur(12px);
+border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:10px 18px}}
+.logo-wrap img{{height:60px;width:auto}}
+.card{{position:relative;z-index:2;width:920px;
+background:rgba(15,20,30,0.85);
+backdrop-filter:blur(30px);border:1px solid rgba(255,255,255,0.1);
+border-top:2px solid {color};border-radius:40px;padding:80px 60px;
+box-shadow:0 40px 80px rgba(0,0,0,0.8);
+display:flex;flex-direction:column;align-items:center;gap:30px}}
+.top-badge{{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+border-radius:100px;padding:12px 30px;font-size:18px;font-weight:700;
+color:#fff;letter-spacing:2px;text-transform:uppercase}}
+.title{{font-size:42px;font-weight:800;color:#fff;margin-bottom:20px}}
+.index-box{{background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.05);
+border-radius:24px;width:100%;padding:50px;text-align:center;
+display:flex;flex-direction:column;gap:15px}}
+.index-val{{font-size:90px;font-weight:900;color:#fff;font-variant-numeric:tabular-nums}}
+.index-chg{{font-size:42px;font-weight:800;color:{color}}}
+.date{{position:absolute;top:50px;right:60px;font-size:18px;
+font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:1px}}
+</style></head><body>
+<div class="glow"></div>
+<div class="logo-wrap"><img src="file:///{LOGO_HTML}" alt="Logo"></div>
+<div class="card">
+  <div class="date">{date_str}</div>
+  <div class="top-badge">Market Dashboard</div>
+  <div class="title">NEPSE Index Summary</div>
+  <div class="index-box">
+    <div class="index-val">{index}</div>
+    <div class="index-chg">{arrow} {chg_pt} ({chg_pct})</div>
+  </div>
+</div>
+</body></html>"""
+
+def run_mode_6_nepse():
+    print("\n[MODE 6] NEPSE MARKET DASHBOARD")
+    history = load_history()
+    now = get_nepal_now()
+    today_key = f"NEPSE_{now.strftime('%Y-%m-%d')}"
+    if today_key in history:
+        print("  [Skip] NEPSE already posted today."); return
+
+    text = fetch_nepse_summary()
+    if not text:
+        print("  [!] Could not fetch NEPSE summary."); return
+
+    index, chg_pt, chg_pct, status = parse_nepse_ai(text)
+    if not index or index == "N/A":
+        print("  [!] AI parse failed."); return
+    
+    print(f"  [NEPSE] {index} | {chg_pt} ({chg_pct})")
+    hti = make_hti(1080, 1350)
+    html = generate_nepse_card(index, chg_pt, chg_pct, status, now.strftime("%B %d, %Y"))
+    fname = f"nepse_{now.strftime('%Y%m%d')}.png"
+    hti.screenshot(html_str=html, save_as=fname)
+    time.sleep(2)
+    img_path = os.path.join(OUTPUT_DIR, fname)
+
+    caption = f"""NEPSE Market Update 📊 (Nepal Stock Exchange)
+Date: {now.strftime("%B %d, %Y")}
+
+📈 Index: {index}
+{ '🟩 UP' if status == 'UP' else '🟥 DOWN' }: {chg_pt} points ({chg_pct})
+
+#NEPSE #ShareMarket #NepalStockExchange #MarketUpdate #NepalCentralNews"""
+
+    if os.path.exists(img_path) and os.path.getsize(img_path) > 5000:
+        if post_to_facebook(img_path, caption):
+            try:
+                shutil.move(img_path, os.path.join(POSTED_DIR, fname))
+            except Exception: pass
+            history.add(today_key)
+            save_history(history)
+    else:
+        print("  [!] Image generation failed or file is too small.")
+
+# ============================================================
 # MODE 3 — WIKIPEDIA "ON THIS DAY"
 # ============================================================
 def fetch_on_this_day():
@@ -1183,9 +1307,12 @@ def main():
     if 10 <= hour <= 12:
         print("  -> Dispatching: MODE 2 - Gold & Silver Rates")
         run_mode_2_gold()
-    elif 13 <= hour <= 16:
+    elif 13 <= hour <= 14:
         print("  -> Dispatching: MODE 3 - On This Day")
         run_mode_3_otd()
+    elif 15 <= hour <= 16:
+        print("  -> Dispatching: MODE 6 - NEPSE Dashboard")
+        run_mode_6_nepse()
     elif 17 <= hour <= 20:
         print("  -> Dispatching: MODE 4 - Pop Culture Trivia")
         run_mode_4_trivia()
