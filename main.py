@@ -10,11 +10,20 @@
     MODE 5 (NASA APOD)   : 9 PM+
 =============================================================================
 """
-import requests, time, os, json, urllib3, re, shutil, random
+import requests, time, os, json, urllib3, re, shutil, random, sys
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
+from difflib import SequenceMatcher
 from html2image import Html2Image
+import urllib.parse
+from PIL import Image
 from datetime import datetime, timezone, timedelta
+
+# Fix Unicode issues in Windows console
+if sys.stdout.encoding.lower() != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 

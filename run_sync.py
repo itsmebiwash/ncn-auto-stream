@@ -1,7 +1,15 @@
 import subprocess
 import time
 import os
+import sys
 from datetime import datetime, timezone, timedelta
+
+# Fix Unicode issues in Windows console
+if sys.stdout.encoding.lower() != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 HISTORY_FILE = os.path.join(SCRIPT_DIR, "data", "scraped_history.txt")
