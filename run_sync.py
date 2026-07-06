@@ -67,8 +67,8 @@ def write_dashboard(env_str, duration, posts_before, posts_after, had_new_state)
     with open(DASHBOARD_FILE, "a", encoding="utf-8") as f:
         f.write(line)
 
-    print(f"\n  📊 Dashboard: {line.strip()}")
-    print(f"  ⏰ Next scheduled run: ~{next_run_str}")
+    print(f"\n  [Dashboard] {line.strip()}")
+    print(f"  [Next run] ~{next_run_str}")
 
 def main():
     start_time = time.time()
@@ -90,7 +90,7 @@ def main():
                 diff_minutes = (datetime.now(timezone.utc) - last_time).total_seconds() / 60.0
                 print(f"  Last heartbeat: {diff_minutes:.1f} min ago.")
                 if diff_minutes < 25:
-                    print("  [✓] Local device is active! GitHub skipping run.")
+                    print("  [OK] Local device is active! GitHub skipping run.")
                     return
             except Exception:
                 pass
@@ -129,7 +129,11 @@ def main():
 
     # 5. Push updated state
     print("\n[5/5] Pushing state to GitHub...")
-    run_cmd("git add data/scraped_history.txt data/wc_posted_history.txt data/wc_posted_history.json")
+    # Only add files that actually exist
+    git_add_files = ["data/scraped_history.txt", "data/wc_posted_history.txt"]
+    if os.path.exists(os.path.join(SCRIPT_DIR, "data", "wc_posted_history.json")):
+        git_add_files.append("data/wc_posted_history.json")
+    run_cmd("git add " + " ".join(git_add_files))
     
     status = subprocess.run("git status --porcelain", shell=True, capture_output=True, text=True, cwd=SCRIPT_DIR)
     had_new_state = "data/" in status.stdout
