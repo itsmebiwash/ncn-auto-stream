@@ -1,0 +1,103 @@
+============================================================
+  NCN Auto-Sync & Run Wrapper
+============================================================
+
+[1/4] Syncing state from GitHub...
+
+> git pull --rebase
+error: cannot pull with rebase: You have unstaged changes.
+error: Please commit or stash them.
+
+[2/4] Claiming execution lock (updating heartbeat)...
+
+> git add data/last_heartbeat.txt
+
+> git config user.name "github-actions[bot]"
+
+> git config user.email "github-actions[bot]@users.noreply.github.com"
+
+> git commit -m "chore: claim execution lock [skip ci]"
+[main 1a92769] chore: claim execution lock [skip ci]
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+> git push
+To https://github.com/itsmebiwash/ncn-auto-stream.git
+   1127a7e..1a92769  main -> main
+
+[3/4] Running Main Engine (News, Gold, NASA, etc.)...
+
+> python main.py
+============================================================
+  Nepal Central News - Multi-Content Engine
+  Nepal Time: 10:45 AM, Jul 06 2026  |  Hour: 10
+============================================================
+  -> Dispatching: MODE 2 - Gold & Silver Rates
+
+[MODE 2] GOLD & SILVER RATES
+  [Rates] Fine=N/A  Tejabi=N/A  Silver=2013
+Traceback (most recent call last):
+  File "c:\Users\biwas\OneDrive\Desktop\Scrapper\main.py", line 1199, in <module>
+    main()
+    ~~~~^^
+  File "c:\Users\biwas\OneDrive\Desktop\Scrapper\main.py", line 1179, in main
+    run_mode_2_gold()
+    ~~~~~~~~~~~~~~~^^
+  File "c:\Users\biwas\OneDrive\Desktop\Scrapper\main.py", line 661, in run_mode_2_gold
+    hti = make_hti(1080, 1350)
+  File "c:\Users\biwas\OneDrive\Desktop\Scrapper\main.py", line 200, in make_hti
+    h = Html2Image(size=(width, height), browser_executable='google-chrome')
+  File "C:\Users\biwas\AppData\Local\Programs\Python\Python314\Lib\site-packages\html2image\html2image.py", line 107, in __init__
+    self.browser = browser_class(
+                   ~~~~~~~~~~~~~^
+        executable=browser_executable,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        flags=custom_flags,
+        ^^^^^^^^^^^^^^^^^^^
+        disable_logging=disable_logging,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\biwas\AppData\Local\Programs\Python\Python314\Lib\site-packages\html2image\browsers\chrome.py", line 189, in __init__
+    super().__init__(executable=executable, flags=flags, print_command=print_command, disable_logging=disable_logging, use_new_headless=use_new_headless)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\biwas\AppData\Local\Programs\Python\Python314\Lib\site-packages\html2image\browsers\chromium.py", line 30, in __init__
+    self.executable = executable
+    ^^^^^^^^^^^^^^^
+  File "C:\Users\biwas\AppData\Local\Programs\Python\Python314\Lib\site-packages\html2image\browsers\chrome.py", line 197, in executable
+    self._executable = _find_chrome(value)
+                       ~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\biwas\AppData\Local\Programs\Python\Python314\Lib\site-packages\html2image\browsers\chrome.py", line 74, in _find_chrome
+    raise FileNotFoundError()
+FileNotFoundError
+
+[4/4] Running WC Scores Engine...
+
+> python wc_scores.py
+[SCORE BOT] Starting - All Competitions
+[!] FOOTBALL_API_KEY not set. Exiting.
+
+[5/5] Pushing updated history to GitHub...
+
+> git add data/scraped_history.txt data/wc_posted_history.txt
+
+> git commit -m "chore: sync state from local device [skip ci]"
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   run_sync.bat
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	data/sync_log.txt
+
+no changes added to commit (use "git add" and/or "git commit -a")
+
+> git push
+Everything up-to-date
+
+============================================================
+  Sync Complete!
+============================================================
