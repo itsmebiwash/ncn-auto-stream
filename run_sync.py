@@ -70,6 +70,8 @@ def main():
     
     # Check if there are changes to commit
     status = subprocess.run("git status --porcelain", shell=True, capture_output=True, text=True)
+    
+    posts_made = status.stdout.count('scraped_history.txt') + status.stdout.count('wc_posted_history.txt')
     if "data/" in status.stdout:
         run_cmd('git commit -m "chore: sync state from local device [skip ci]"')
         
@@ -82,9 +84,25 @@ def main():
     else:
         print("  [-] No state changes to push.")
 
+    # 6. Log Dashboard Stats
+    end_time = time.time()
+    duration = end_time - start_time
+    env_str = "GitHub Cloud" if os.environ.get("GITHUB_ACTIONS") == "true" else "Local Laptop"
+    log_file = "dashboard_stats.txt"
+    
+    # Check if we need to reset the log (older than 24h)
+    if os.path.exists(log_file):
+        mod_time = os.path.getmtime(log_file)
+        if time.time() - mod_time > 86400: # 24 hours
+            os.remove(log_file)
+            
+    with open(log_file, "a", encoding="utf-8") as f:
+        f.write(f"[{datetime.now().strftime('%Y-%m-%d %I:%M %p')}] Ran on: {env_str} | Duration: {duration:.1f}s | State Changed: {'Yes' if 'data/' in status.stdout else 'No'}\n")
+        
     print("\n" + "="*60)
     print("  Sync Complete!")
     print("="*60)
 
 if __name__ == "__main__":
+    start_time = time.time()
     main()
