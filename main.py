@@ -191,6 +191,59 @@ def save_history(history_set):
         for item in list(history_set)[-1000:]:
             f.write(f"{item.strip()}\n")
 
+def post_backlog(max_to_post=3):
+    """Post images that are already generated in output/ (fast - no scraping).
+    Returns number of posts sent so the scraper knows remaining quota."""
+    if not os.path.exists(OUTPUT_DIR): return 0
+    images = sorted(
+        [f for f in os.listdir(OUTPUT_DIR) if f.endswith('.png')],
+        key=lambda f: os.path.getmtime(os.path.join(OUTPUT_DIR, f))
+    )
+    if not images:
+        return 0
+
+    print(f"\n  [Backlog] {len(images)} images queued. Posting up to {max_to_post} now...")
+    posted = 0
+    for fname in images:
+        if posted >= max_to_post:
+            break
+        img_path = os.path.join(OUTPUT_DIR, fname)
+        # Build a simple caption from filename
+        stem = fname.replace('news_', '').replace('.png', '').replace('_', ' ')
+        stem = re.sub(r'\d{9,}', '', stem).strip()
+        caption = f"{stem}\n\n#NepalCentralNews #Nepal"
+
+        # Try to read a matching caption file if exists
+        cap_file = img_path.replace('.png', '.txt')
+        if os.path.exists(cap_file):
+            try:
+                with open(cap_file, 'r', encoding='utf-8') as cf:
+                    caption = cf.read().strip()
+            except Exception:
+                pass
+
+        success = post_to_facebook(img_path, caption)
+        if success:
+            posted += 1
+            try:
+                shutil.move(img_path, os.path.join(POSTED_DIR, fname))
+                if os.path.exists(cap_file):
+                    os.remove(cap_file)
+            except Exception:
+                pass
+        else:
+            # Delete broken image
+            try: os.remove(img_path)
+            except Exception: pass
+
+        if posted < max_to_post:
+            delay = random.randint(45, 90)
+            print(f"    [Anti-Spam] Sleeping {delay}s...")
+            time.sleep(delay)
+
+    print(f"  [Backlog] Posted {posted} from backlog.")
+    return posted
+
 def cleanup_old_files():
     cutoff = time.time() - (48 * 3600)
     if os.path.exists(OUTPUT_DIR):
@@ -435,9 +488,20 @@ def generate_news_card(headline, box1, box2, bg_image_url, category, short_summa
 
 def run_mode_1_news():
     print("\n[MODE 1] NEWS SCRAPER")
+
+    # --- STEP 1: Post any already-generated images first (fast, no AI/scraping) ---
+    MAX_PER_RUN = 5
+    backlog_posted = post_backlog(max_to_post=3)
+    remaining_slots = MAX_PER_RUN - backlog_posted
+
+    if remaining_slots <= 0:
+        print("  [Mode 1] Backlog posted 3. Skipping fresh scrape this round.")
+        return
+
+    # --- STEP 2: Scrape for NEW articles (only if quota remains) ---
     history = load_history()
     hti = make_hti(1080, 1350)
-    max_per_site = 5
+    max_per_site = 2   # Keep scraping fast (was 5)
     ready_to_post = []
 
     for site in TARGET_SITES:
@@ -513,14 +577,12 @@ Credit: {site['name']}
         save_history(history)
         return
 
-    print(f"\n  [+] {len(ready_to_post)} articles ready. Posting up to 5 this run...")
-    # Post at most 5 per run with a 45-90s gap to avoid Facebook spam flags
-    MAX_PER_RUN = 5
+    print(f"\n  [+] {len(ready_to_post)} articles ready. Posting up to {remaining_slots} more this run...")
     posted_count = 0
 
     for i, (img_path, caption, fname, original_title) in enumerate(ready_to_post):
-        if posted_count >= MAX_PER_RUN:
-            print(f"    [Limit] Posted {MAX_PER_RUN} this run. Remaining will post next run.")
+        if posted_count >= remaining_slots:
+            print(f"    [Limit] Quota reached ({remaining_slots} new). Remaining images will post next run.")
             break
 
         # Re-load history fresh before each post to catch parallel runners
