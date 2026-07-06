@@ -85,24 +85,48 @@ def main():
         print("  [-] No state changes to push.")
 
     # 6. Log Dashboard Stats
-    end_time = time.time()
-    duration = end_time - start_time
-    env_str = "GitHub Cloud" if os.environ.get("GITHUB_ACTIONS") == "true" else "Local Laptop"
-    log_file = "dashboard_stats.txt"
+    end_time   = time.time()
+    duration   = end_time - start_time
+    env_str    = "GitHub Cloud" if os.environ.get("GITHUB_ACTIONS") == "true" else "Local Laptop"
     
-    # Check if we need to reset the log (older than 24h)
+    # Absolute path → always in the Scrapper folder regardless of CWD
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    log_file   = os.path.join(script_dir, "dashboard_stats.txt")
+
+    # Count how many items were added to history (proxy for posts made)
+    posts_this_run = 0
+    hist_file = os.path.join(script_dir, "data", "scraped_history.txt")
+    if os.path.exists(hist_file):
+        # diff between start and now — use line count delta (rough estimate)
+        posts_this_run = status.stdout.count("scraped_history") if "scraped_history" in status.stdout else 0
+
+    # Next run: 15 minutes from now
+    from datetime import timedelta
+    next_run_dt = datetime.now() + timedelta(minutes=15)
+    next_run_str = next_run_dt.strftime("%I:%M %p")
+
+    # Reset log if older than 24h
     if os.path.exists(log_file):
-        mod_time = os.path.getmtime(log_file)
-        if time.time() - mod_time > 86400: # 24 hours
+        if time.time() - os.path.getmtime(log_file) > 86400:
             os.remove(log_file)
-            
+
+    line = (
+        f"[{datetime.now().strftime('%Y-%m-%d %I:%M %p')}] "
+        f"Ran on: {env_str} | "
+        f"Duration: {duration:.0f}s | "
+        f"State synced: {'YES' if 'data/' in status.stdout else 'NO'} | "
+        f"Next run: ~{next_run_str}\n"
+    )
+
     with open(log_file, "a", encoding="utf-8") as f:
-        f.write(f"[{datetime.now().strftime('%Y-%m-%d %I:%M %p')}] Ran on: {env_str} | Duration: {duration:.1f}s | State Changed: {'Yes' if 'data/' in status.stdout else 'No'}\n")
-        
+        f.write(line)
+
     print("\n" + "="*60)
     print("  Sync Complete!")
+    print(f"  Next scheduled run: ~{next_run_str}")
     print("="*60)
 
 if __name__ == "__main__":
     start_time = time.time()
     main()
+

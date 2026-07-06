@@ -198,10 +198,17 @@ def init_dirs():
 
 def make_hti(width=1080, height=1350):
     termux_chrome = "/data/data/com.termux/files/usr/bin/chromium-browser"
+    win_chrome    = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+    win_chrome2   = r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
     if os.path.exists(termux_chrome):
-        h = Html2Image(size=(width, height), browser_executable=termux_chrome)
+        chrome_path = termux_chrome
+    elif os.path.exists(win_chrome):
+        chrome_path = win_chrome
+    elif os.path.exists(win_chrome2):
+        chrome_path = win_chrome2
     else:
-        h = Html2Image(size=(width, height), browser_executable='google-chrome')
+        chrome_path = 'google-chrome'  # Linux/GitHub Actions fallback
+    h = Html2Image(size=(width, height), browser_executable=chrome_path)
     h.output_path = OUTPUT_DIR
     h.browser.flags = [
         '--no-sandbox', '--disable-setuid-sandbox',
