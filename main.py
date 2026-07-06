@@ -91,6 +91,8 @@ def flag_img_html(country_name, size=80):
     return ""
 
 TARGET_SITES = [
+    {"name": "JhapaOnline", "url": "https://jhapaonline.com/", "container_tag": "div", "title_tag": "h2"},
+    {"name": "TechPana", "url": "https://techpana.com/", "container_tag": "div", "title_tag": "h3"},
     {"name": "OnlineKhabar", "url": "https://www.onlinekhabar.com/", "container_tag": "div", "container_class": "ok-news-card", "title_tag": "h2"},
     {"name": "Ekantipur", "url": "https://ekantipur.com/news", "container_tag": "article", "container_class": "normal", "title_tag": "h2"},
     {"name": "Ratopati", "url": "https://ratopati.com/", "container_tag": "div", "container_class": "item", "title_tag": "h3"},
@@ -136,7 +138,6 @@ TARGET_SITES = [
     {"name": "NepaliPaisa", "url": "https://nepalipaisa.com/", "container_tag": "div", "title_tag": "h2"},
     {"name": "HamroKhelkud", "url": "https://hamrokhelkud.com/", "container_tag": "div", "title_tag": "h3"},
     {"name": "KhelOnline", "url": "https://khelonline.com/", "container_tag": "div", "title_tag": "h3"},
-    {"name": "TechPana", "url": "https://techpana.com/", "container_tag": "div", "title_tag": "h3"},
     {"name": "GadgetByte", "url": "https://gadgetbytenepal.com/", "container_tag": "div", "title_tag": "h2"},
     {"name": "TechLekh", "url": "https://techlekh.com/", "container_tag": "div", "title_tag": "h2"},
     {"name": "SwasthyaKhabar", "url": "https://swasthyakhabar.com/", "container_tag": "div", "title_tag": "h2"},
