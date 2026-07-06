@@ -8,6 +8,19 @@
 """
 import requests, time, os, json, shutil
 from html2image import Html2Image
+import sys
+
+# ============================================================
+# LOAD LOCAL .ENV FILE (FOR LAPTOP EXECUTION)
+# ============================================================
+if os.path.exists(".env"):
+    with open(".env", "r") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                key, _, val = line.partition("=")
+                os.environ[key.strip()] = val.strip().strip("'").strip('"')
+
 from datetime import datetime, timezone, timedelta
 
 # ============================================================

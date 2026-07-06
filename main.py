@@ -16,7 +16,6 @@ from difflib import SequenceMatcher
 from html2image import Html2Image
 import urllib.parse
 from urllib.parse import urljoin
-from PIL import Image
 from datetime import datetime, timezone, timedelta
 
 # Fix Unicode issues in Windows console
@@ -27,6 +26,17 @@ if sys.stdout.encoding.lower() != 'utf-8':
         pass
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# ============================================================
+# LOAD LOCAL .ENV FILE (FOR LAPTOP EXECUTION)
+# ============================================================
+if os.path.exists(".env"):
+    with open(".env", "r") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                key, _, val = line.partition("=")
+                os.environ[key.strip()] = val.strip().strip("'").strip('"')
 
 # ============================================================
 # ENVIRONMENT VARIABLES
