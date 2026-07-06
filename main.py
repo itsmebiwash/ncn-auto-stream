@@ -184,8 +184,11 @@ def is_similar_duplicate(new_title, history_set):
     if not new_words: return False
     for old_title in history_set:
         old_words = set(w for w in re.findall(r'\w+', old_title.lower()) if len(w) > 3)
-        if old_words and len(new_words.intersection(old_words)) / len(new_words) > 0.6:
-            return True
+        if old_words:
+            # Check overlap against the MINIMUM of the two lengths to catch substrings
+            overlap = len(new_words.intersection(old_words))
+            if overlap / min(len(new_words), len(old_words)) > 0.45:
+                return True
     return False
 
 def init_dirs():
@@ -416,8 +419,10 @@ def run_mode_1_news():
             r = requests.get(site['url'], headers=HEADERS, timeout=15, verify=False)
             if r.status_code != 200: continue
             soup = BeautifulSoup(r.text, 'html.parser')
-            containers = soup.find_all(site['container_tag'], class_=site['container_class'])
-            if not containers: containers = soup.find_all(site['container_tag'], class_=site.get('container_class'))
+            if 'container_class' in site:
+                containers = soup.find_all(site['container_tag'], class_=site['container_class'])
+            else:
+                containers = soup.find_all(site['container_tag'])
 
             for container in containers:
                 if articles_found >= max_per_site: break
