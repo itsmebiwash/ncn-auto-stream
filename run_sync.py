@@ -42,8 +42,12 @@ def get_nepal_time_str():
 
 def write_dashboard(env_str, duration, posts_before, posts_after, had_new_state):
     posts_this_run = max(0, posts_after - posts_before)
-    next_run_dt    = datetime.now() + timedelta(minutes=15)
-    next_run_str   = next_run_dt.strftime("%I:%M %p")
+    
+    # Calculate next clock-aligned 15-minute interval (Task Scheduler behavior)
+    now = datetime.now()
+    next_min = ((now.minute // 15) + 1) * 15
+    next_run_dt = now.replace(minute=0, second=0, microsecond=0) + timedelta(minutes=next_min)
+    next_run_str = next_run_dt.strftime("%I:%M %p")
 
     # Reset if older than 24h
     if os.path.exists(DASHBOARD_FILE):
