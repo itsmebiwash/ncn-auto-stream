@@ -513,11 +513,16 @@ Credit: {site['name']}
         save_history(history)
         return
 
-    print(f"\n  [+] {len(ready_to_post)} articles ready. Uploading...")
-    max_wait = 1200
-    avg_wait = max(30, max_wait // len(ready_to_post))
+    print(f"\n  [+] {len(ready_to_post)} articles ready. Posting up to 5 this run...")
+    # Post at most 5 per run with a 45-90s gap to avoid Facebook spam flags
+    MAX_PER_RUN = 5
+    posted_count = 0
 
     for i, (img_path, caption, fname, original_title) in enumerate(ready_to_post):
+        if posted_count >= MAX_PER_RUN:
+            print(f"    [Limit] Posted {MAX_PER_RUN} this run. Remaining will post next run.")
+            break
+
         # Re-load history fresh before each post to catch parallel runners
         history = load_history()
         if original_title in history or is_similar_duplicate(original_title, history):
@@ -531,6 +536,7 @@ Credit: {site['name']}
 
         success = post_to_facebook(img_path, caption)
         if success:
+            posted_count += 1
             # Immediately lock this article in history so no other device can re-post it
             history.add(original_title)
             save_history(history)
@@ -546,9 +552,9 @@ Credit: {site['name']}
             except Exception:
                 pass
 
-        if i < len(ready_to_post) - 1:
-            delay = random.randint(30, avg_wait * 2)
-            print(f"    [Anti-Spam] Sleeping {delay/60:.1f} min...")
+        if posted_count < MAX_PER_RUN and i < len(ready_to_post) - 1:
+            delay = random.randint(45, 90)
+            print(f"    [Anti-Spam] Sleeping {delay}s before next post...")
             time.sleep(delay)
 
 # ============================================================
