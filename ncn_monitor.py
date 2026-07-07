@@ -7,16 +7,20 @@ Click anywhere or press Refresh to update.
 import tkinter as tk
 from tkinter import ttk
 import os
-import json
+import subprocess
+import sys
+import time
+import threading
 from datetime import datetime, timedelta, timezone
 
 # ──────────────────────────────────────────────
-SCRIPT_DIR    = os.path.dirname(os.path.abspath(__file__))
-HISTORY_FILE  = os.path.join(SCRIPT_DIR, "data", "scraped_history.txt")
+SCRIPT_DIR     = os.path.dirname(os.path.abspath(__file__))
+HISTORY_FILE   = os.path.join(SCRIPT_DIR, "data", "scraped_history.json")  # JSON list format
 HEARTBEAT_FILE = os.path.join(SCRIPT_DIR, "data", "last_heartbeat.txt")
 DASHBOARD_FILE = os.path.join(SCRIPT_DIR, "dashboard_stats.txt")
-OUTPUT_DIR    = os.path.join(SCRIPT_DIR, "output")
-POSTED_DIR    = os.path.join(SCRIPT_DIR, "output", "posted")
+OUTPUT_DIR     = os.path.join(SCRIPT_DIR, "output")
+POSTED_DIR     = os.path.join(SCRIPT_DIR, "output", "posted")
+SCRAPPER_SCRIPT = os.path.join(SCRIPT_DIR, "main.py")
 
 # Colours
 BG       = "#0d0f14"
@@ -34,9 +38,16 @@ NEPSE_C  = "#7c4dff"
 # DATA HELPERS
 # ──────────────────────────────────────────────
 def count_lines(path):
+    """Count posted items - supports both JSON list and plain text format."""
     try:
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
-            return sum(1 for l in f if l.strip())
+            content = f.read().strip()
+            if content.startswith("["):
+                import json
+                data = json.loads(content)
+                return len(data) if isinstance(data, list) else 0
+            # Fallback: plain text line count
+            return sum(1 for l in content.splitlines() if l.strip())
     except Exception:
         return 0
 
@@ -45,6 +56,49 @@ def count_files(folder, ext=".png"):
         return sum(1 for f in os.listdir(folder) if f.endswith(ext))
     except Exception:
         return 0
+
+
+def is_scrapper_running():
+    """Use wmic to get full command line - tasklist doesn't show script paths."""
+    try:
+        out = subprocess.check_output(
+            ["wmic", "process", "where", "name='python.exe'", "get", "commandline", "/format:list"],
+            stderr=subprocess.DEVNULL, timeout=5
+        ).decode("utf-8", "ignore")
+        script_name = os.path.basename(SCRAPPER_SCRIPT).lower()  # 'main.py'
+        for line in out.splitlines():
+            if script_name in line.lower():
+                return True
+        return False
+    except Exception:
+        # Fallback: check for a fresh heartbeat (written every cycle by main.py)
+        try:
+            hb_path = HEARTBEAT_FILE
+            if os.path.exists(hb_path):
+                mtime = os.path.getmtime(hb_path)
+                age = time.time() - mtime
+                return age < 720  # Consider running if heartbeat < 12 min old
+        except Exception:
+            pass
+        return False
+
+
+def start_scrapper():
+    if is_scrapper_running():
+        return False
+    try:
+        subprocess.Popen([sys.executable, SCRAPPER_SCRIPT], cwd=SCRIPT_DIR, creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == "nt" else 0)
+        return True
+    except Exception:
+        return False
+
+
+def stop_scrapper():
+    try:
+        subprocess.run(["taskkill", "/F", "/IM", "python.exe"], capture_output=True, text=True, check=False)
+        return True
+    except Exception:
+        return False
 
 def get_last_heartbeat():
     try:
@@ -88,6 +142,8 @@ def get_current_data():
     total_posts   = count_lines(HISTORY_FILE)
     images_ready  = count_files(OUTPUT_DIR)
     images_posted = count_files(POSTED_DIR)
+    videos_ready  = count_files(OUTPUT_DIR, ".mp4")
+    videos_posted = count_files(POSTED_DIR, ".mp4")
     last_hb       = get_last_heartbeat()
     next_str, next_clr = get_next_run(last_hb)
     history_entries = parse_dashboard()
@@ -99,6 +155,8 @@ def get_current_data():
         "total_posts":    total_posts,
         "images_ready":   images_ready,
         "images_posted":  images_posted,
+        "videos_ready":   videos_ready,
+        "videos_posted":  videos_posted,
         "last_hb":        last_hb.strftime("%I:%M %p, %b %d") if last_hb else "N/A",
         "next_run":       next_str,
         "next_clr":       next_clr,
@@ -113,7 +171,7 @@ class NCNDashboard(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("NCN Monitor — Nepal Central News")
-        self.geometry("820x680")
+        self.geometry("900x760")
         self.minsize(700, 580)
         self.configure(bg=BG)
         self.resizable(True, True)
@@ -148,6 +206,16 @@ class NCNDashboard(tk.Tk):
                   font=("Segoe UI", 10, "bold"),
                   bg=ACCENT, fg=BG, relief="flat", padx=12, pady=5,
                   cursor="hand2", command=self.refresh).pack(side="right")
+        self.btn_start = tk.Button(right, text="▶ Start",
+                                   font=("Segoe UI", 10, "bold"), bg=GREEN, fg=BG,
+                                   relief="flat", padx=12, pady=5, cursor="hand2",
+                                   command=self.start_clicked)
+        self.btn_start.pack(side="right", padx=(6, 0))
+        self.btn_stop = tk.Button(right, text="■ Stop",
+                                  font=("Segoe UI", 10, "bold"), bg=RED, fg=WHITE,
+                                  relief="flat", padx=12, pady=5, cursor="hand2",
+                                  command=self.stop_clicked)
+        self.btn_stop.pack(side="right", padx=(6, 0))
 
         # ── Stat cards (top row) ──
         row1 = tk.Frame(self, bg=BG)
@@ -158,7 +226,16 @@ class NCNDashboard(tk.Tk):
         self.card_posts  = self._stat_card(row1, "Total Posts", "–", YELLOW, 0)
         self.card_ready  = self._stat_card(row1, "Images Ready", "–", ACCENT, 1)
         self.card_posted = self._stat_card(row1, "Images Posted", "–", GREEN, 2)
-        self.card_pct    = self._stat_card(row1, "Posted %", "–", NEPSE_C, 3)
+        self.card_pct    = self._stat_card(row1, "Upload %", "–", NEPSE_C, 3)
+
+        row1b = tk.Frame(self, bg=BG)
+        row1b.pack(fill="x", padx=20, pady=(0, 8))
+        for i in range(4):
+            row1b.columnconfigure(i, weight=1)
+        self.card_vready = self._stat_card(row1b, "Videos Ready", "–", ACCENT, 0)
+        self.card_vposted = self._stat_card(row1b, "Videos Posted", "–", GREEN, 1)
+        self.card_running = self._stat_card(row1b, "Scrapper State", "–", YELLOW, 2)
+        self.card_mode = self._stat_card(row1b, "Mode", "News", NEPSE_C, 3)
 
         # ── Last run & Next run ──
         row2 = tk.Frame(self, bg=BG)
@@ -191,7 +268,7 @@ class NCNDashboard(tk.Tk):
                  font=("Segoe UI", 9, "bold"), fg=DIM, bg=CARD_BG).pack(anchor="w")
         self.lbl_last_detail = tk.Label(ld_inner, text="–",
                                         font=("Consolas", 9), fg=ACCENT, bg=CARD_BG,
-                                        wraplength=760, justify="left")
+                                        wraplength=840, justify="left")
         self.lbl_last_detail.pack(anchor="w", pady=(4, 0))
 
         # ── History log ──
@@ -260,6 +337,14 @@ class NCNDashboard(tk.Tk):
         self.lbl_next.config(text=d["next_run"], fg=d["next_clr"])
         self.lbl_last_detail.config(text=d["last_run"])
 
+        running = is_scrapper_running()
+        self.card_running.config(text="Running" if running else "Stopped")
+        self.card_running.config(fg=GREEN if running else RED)
+        self.btn_start.config(state="disabled" if running else "normal")
+        self.btn_stop.config(state="normal" if running else "disabled")
+        self.card_vready.config(text=str(d["videos_ready"]))
+        self.card_vposted.config(text=str(d["videos_posted"]))
+
         # History log
         self.txt_history.config(state="normal")
         self.txt_history.delete("1.0", "end")
@@ -287,13 +372,25 @@ class NCNDashboard(tk.Tk):
 
         # Status dot
         hb = d["last_hb"]
-        self.status_dot.config(fg=GREEN if hb != "N/A" else RED)
+        self.status_dot.config(fg=GREEN if running else RED)
 
         # Clock
         now = get_nepal_now()
         self.lbl_clock.config(
             text=f"Nepal Time: {now.strftime('%I:%M:%S %p, %b %d %Y')}   |   Scrapper Folder: {SCRIPT_DIR}"
         )
+
+    def start_clicked(self):
+        ok = start_scrapper()
+        self.refresh()
+        if ok:
+            self.lbl_last_detail.config(text="Started scraper in a new window.")
+
+    def stop_clicked(self):
+        ok = stop_scrapper()
+        self.refresh()
+        if ok:
+            self.lbl_last_detail.config(text="Stopped scraper processes.")
 
     def _auto_refresh(self):
         self.refresh()

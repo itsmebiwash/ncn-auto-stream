@@ -10,13 +10,17 @@
     MODE 5 (NASA APOD)   : 9 PM+
 =============================================================================
 """
-import requests, time, os, json, urllib3, re, shutil, random, sys
+import requests, time, os, json, urllib3, re, shutil, random, sys, threading
 from bs4 import BeautifulSoup
 from difflib import SequenceMatcher
 from html2image import Html2Image
 import urllib.parse
 from urllib.parse import urljoin
 from datetime import datetime, timezone, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from moviepy.video.VideoClip import ImageClip
+import moviepy.video.fx as vfx
+from PIL import Image
 
 # Fix Unicode issues in Windows console
 if sys.stdout.encoding.lower() != 'utf-8':
@@ -46,6 +50,9 @@ GROQ_API_KEY         = os.environ.get("GROQ_API_KEY")
 OPENROUTER_API_KEY   = os.environ.get("OPENROUTER_API_KEY")
 FB_PAGE_ID           = os.environ.get("FB_PAGE_ID")
 FB_PAGE_ACCESS_TOKEN = os.environ.get("FB_PAGE_ACCESS_TOKEN")
+FB_USER_ACCESS_TOKEN = os.environ.get("FB_USER_ACCESS_TOKEN") or os.environ.get("FACEBOOK_ACCESS_TOKEN")
+FB_APP_ID            = os.environ.get("FB_APP_ID")
+FB_APP_SECRET        = os.environ.get("FB_APP_SECRET")
 PEXELS_API_KEY       = os.environ.get("PEXELS_API_KEY")
 NASA_API_KEY         = "4ZKne2vBHpJjmw1qPTWTPRPjsGr1syAdP1sTsNC3"
 
@@ -77,7 +84,7 @@ FLAGS_DIR    = os.path.join(os.path.abspath(ASSETS_DIR), "Flag PNG")
 
 NEPAL_TZ     = timedelta(hours=5, minutes=45)
 
-# Country name → ISO 3166-1 alpha-2 code for PNG flag lookup
+# Country name -> ISO 3166-1 alpha-2 code for PNG flag lookup
 COUNTRY_CODE_MAP = {
     "Argentina":"ar","Brazil":"br","France":"fr","Germany":"de","Spain":"es",
     "England":"gb-eng","Portugal":"pt","Netherlands":"nl","Belgium":"be","Italy":"it",
@@ -176,23 +183,102 @@ def get_nepal_now():
     return datetime.now(timezone.utc) + NEPAL_TZ
 
 def load_history():
-    HISTORY_TXT = "data/scraped_history.txt"
-    if os.path.exists(HISTORY_TXT):
+    if os.path.exists(HISTORY_FILE):
         try:
-            with open(HISTORY_TXT, "r", encoding="utf-8") as f:
-                return set(line.strip() for line in f if line.strip())
-        except: return set()
-    return set()
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    return data
+        except Exception:
+            pass
+    # Fallback to old txt format for smooth migration
+    old_history_txt = "data/scraped_history.txt"
+    if os.path.exists(old_history_txt):
+        try:
+            with open(old_history_txt, "r", encoding="utf-8") as f:
+                lines = [line.strip() for line in f if line.strip()]
+                return [{"hash": line, "title": line, "timestamp": time.time()} for line in lines]
+        except:
+            pass
+    return []
 
-def save_history(history_set):
-    HISTORY_TXT = "data/scraped_history.txt"
-    if not os.path.exists("data"): os.makedirs("data")
-    with open(HISTORY_TXT, "w", encoding="utf-8") as f:
-        for item in list(history_set)[-1000:]:
-            f.write(f"{item.strip()}\n")
+def save_history(history_list):
+    if not os.path.exists("data"):
+        os.makedirs("data")
+    # Keep only the last 1000 items
+    history_list = history_list[-1000:]
+    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+        json.dump(history_list, f, indent=2)
 
-def post_backlog(max_to_post=3):
+def is_similar_duplicate_tier1(new_title, history_list):
+    new_words = set(w for w in re.findall(r'\w+', new_title.lower()) if len(w) > 3)
+    if not new_words: return False
+    for old_item in history_list[-100:]:  # Check last 100
+        old_title = old_item.get("title", "")
+        old_words = set(w for w in re.findall(r'\w+', old_title.lower()) if len(w) > 3)
+        if old_words:
+            overlap = len(new_words.intersection(old_words))
+            if min(len(new_words), len(old_words)) > 0 and overlap / min(len(new_words), len(old_words)) > 0.45:
+                return True
+    return False
+
+def ai_deduplicate_check(new_title, history_list):
+    """Tier 2 Semantic Check using Gemini."""
+    if not history_list:
+        return False
+    # Get last 20 titles
+    recent_titles = [item.get("title", "") for item in history_list[-20:] if item.get("title")]
+    if not recent_titles:
+        return False
+    
+    prompt = f"""You are a news deduplication system.
+Compare this NEW headline with the list of recently posted headlines.
+If the NEW headline is semantically the same event/story as ANY of the recent headlines (even if worded differently), reply exactly with: DUPLICATE
+If it is a genuinely different story/event, reply exactly with: UNIQUE
+
+NEW Headline: {new_title}
+
+RECENT Headlines:
+"""
+    for t in recent_titles:
+        prompt += f"- {t}\n"
+        
+    res = ai_generate(prompt)
+    if res and "DUPLICATE" in res.upper():
+        return True
+    return False
+
+def is_duplicate(new_title, history_list):
+    """Unified two-tier deduplication check."""
+    # 1. Exact match check
+    for item in history_list:
+        if item.get("title") == new_title or item.get("hash") == new_title:
+            return True
+    
+    # 2. Tier 1: Fast Word-overlap match
+    if is_similar_duplicate_tier1(new_title, history_list):
+        print(f"    [Dup] Fast word-overlap match: {new_title[:40]}...")
+        return True
+        
+    # 3. Tier 2: AI Semantic Check (only for actual news titles, not daily modes)
+    if "News" not in new_title and "Daily" not in new_title and "Gold" not in new_title:
+        if ai_deduplicate_check(new_title, history_list):
+            print(f"    [Dup] AI Semantic match: {new_title[:40]}...")
+            return True
+            
+    return False
+
+def add_to_history(title_or_hash, history_list):
+    """Helper to add to history list."""
+    history_list.append({
+        "title": title_or_hash,
+        "hash": title_or_hash,
+        "timestamp": time.time()
+    })
+
+def post_backlog(max_to_post=5):
     """Post images that are already generated in output/ (fast - no scraping).
+    Uses PARALLEL posting for speed.
     Returns number of posts sent so the scraper knows remaining quota."""
     if not os.path.exists(OUTPUT_DIR): return 0
     images = sorted(
@@ -203,45 +289,41 @@ def post_backlog(max_to_post=3):
         return 0
 
     print(f"\n  [Backlog] {len(images)} images queued. Posting up to {max_to_post} now...")
-    posted = 0
-    for fname in images:
-        if posted >= max_to_post:
-            break
-        img_path = os.path.join(OUTPUT_DIR, fname)
-        # Build a simple caption from filename
-        stem = fname.replace('news_', '').replace('.png', '').replace('_', ' ')
-        stem = re.sub(r'\d{9,}', '', stem).strip()
-        caption = f"{stem}\n\n#NepalCentralNews #Nepal"
+    
+    token = get_page_token()
+    if not token:
+        print("  [!] No valid Facebook token available for backlog posting.")
+        return 0
 
-        # Try to read a matching caption file if exists
+    # Build tuples for parallel posting
+    backlog_items = []
+    for fname in images[:max_to_post]:
+        img_path = os.path.join(OUTPUT_DIR, fname)
+        
+        # Try to read caption from .txt file first (has full formatted caption)
         cap_file = img_path.replace('.png', '.txt')
+        caption = None
         if os.path.exists(cap_file):
             try:
                 with open(cap_file, 'r', encoding='utf-8') as cf:
                     caption = cf.read().strip()
             except Exception:
                 pass
-
-        success = post_to_facebook(img_path, caption)
-        if success:
-            posted += 1
-            try:
-                shutil.move(img_path, os.path.join(POSTED_DIR, fname))
-                if os.path.exists(cap_file):
-                    os.remove(cap_file)
-            except Exception:
-                pass
-        else:
-            # Delete broken image
-            try: os.remove(img_path)
-            except Exception: pass
-
-        if posted < max_to_post:
-            delay = random.randint(45, 90)
-            print(f"    [Anti-Spam] Sleeping {delay}s...")
-            time.sleep(delay)
-
-    print(f"  [Backlog] Posted {posted} from backlog.")
+        
+        # Fallback: build simple caption from filename if no .txt file
+        if not caption:
+            stem = fname.replace('news_', '').replace('gold_', '').replace('nepse_', '').replace('.png', '').replace('_', ' ')
+            stem = re.sub(r'\d{9,}', '', stem).strip()
+            caption = f"{stem}\n\n#NepalCentralNews #Nepal"
+        
+        backlog_items.append((img_path, caption, fname, f"BACKLOG_{fname}"))
+    
+    posted, failed = post_images_parallel(backlog_items, max_workers=2, max_concurrent=2, token=token)
+    if failed:
+        print("  [Backlog] Failed posts:")
+        for _, fname, _, msg in failed:
+            print(f"    {fname}: {msg}")
+    print(f"  [Backlog] Posted {posted}/{len(images)} from backlog.")
     return posted
 
 def cleanup_old_files():
@@ -254,20 +336,75 @@ def cleanup_old_files():
                 except: pass
 
 def is_similar_duplicate(new_title, history_set):
-    new_words = set(w for w in re.findall(r'\w+', new_title.lower()) if len(w) > 3)
-    if not new_words: return False
+    """Improved duplicate detection: catch same news from different sites.
+    Removes stop words and normalizes text for better cross-site matching."""
+    stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'is', 'was', 'are', 'were', 'has', 'have', 'be', 'been'}
+    
+    def normalize(title):
+        words = [w for w in re.findall(r'\w+', title.lower()) if len(w) > 3 and w not in stop_words]
+        return set(words)
+    
+    new_normalized = normalize(new_title)
+    if len(new_normalized) < 2: return False
+    
     for old_title in history_set:
-        old_words = set(w for w in re.findall(r'\w+', old_title.lower()) if len(w) > 3)
-        if old_words:
-            # Check overlap against the MINIMUM of the two lengths to catch substrings
-            overlap = len(new_words.intersection(old_words))
-            if overlap / min(len(new_words), len(old_words)) > 0.45:
+        old_normalized = normalize(old_title)
+        if not old_normalized or not new_normalized: continue
+        
+        overlap = len(new_normalized.intersection(old_normalized))
+        overlap_ratio = overlap / min(len(new_normalized), len(old_normalized))
+        
+        # More aggressive: 50% overlap means likely duplicate
+        if overlap_ratio > 0.50:
+            return True
+        # Also catch if 4+ key words match (even if ratio lower)
+        if overlap >= 4:
+            return True
+        # Sequence similarity fallback to catch rephrased headlines
+        try:
+            ratio = SequenceMatcher(None, new_title.lower(), old_title.lower()).ratio()
+            if ratio >= 0.70:
                 return True
+        except Exception:
+            pass
+    
     return False
 
 def init_dirs():
     for d in [OUTPUT_DIR, POSTED_DIR, "data"]:
         if not os.path.exists(d): os.makedirs(d)
+
+
+def build_news_video(image_path, output_video_path, duration=5):
+    try:
+        if not os.path.exists(image_path):
+            return None
+        img = Image.open(image_path).convert("RGB")
+        img = img.resize((1080, 1350))
+        temp_img = os.path.join(OUTPUT_DIR, f"_tmp_{os.path.basename(image_path)}")
+        img.save(temp_img)
+        
+        clip = ImageClip(temp_img).with_duration(duration)
+        
+        # Subtle Zoom-in effect (1.0 to 1.15 over 5 seconds)
+        def zoom_func(t):
+            return 1.0 + 0.15 * (t / duration)
+            
+        clip = clip.resized(zoom_func)
+        # Crop back to center to maintain exact 1080x1350 dimensions for IG/Reels
+        clip = clip.cropped(x_center=clip.w/2, y_center=clip.h/2, width=1080, height=1350)
+        
+        clip.write_videofile(output_video_path, codec='libx264', audio=False, fps=30, bitrate='1800k', logger=None)
+        clip.close()
+        try:
+            os.remove(temp_img)
+        except Exception:
+            pass
+        return output_video_path
+    except Exception as e:
+        print(f"    [Video Error] {e}")
+        return None
+
 
 def make_hti(width=1080, height=1350):
     termux_chrome = "/data/data/com.termux/files/usr/bin/chromium-browser"
@@ -290,7 +427,7 @@ def make_hti(width=1080, height=1350):
     return h
 
 # ============================================================
-# AI PIPELINE (Groq → OpenRouter → Gemini with rotation)
+# AI PIPELINE (Groq -> OpenRouter -> Gemini with rotation)
 # ============================================================
 def generate_with_groq(prompt):
     if not GROQ_API_KEYS: return None
@@ -303,7 +440,7 @@ def generate_with_groq(prompt):
                 timeout=20)
             if res.status_code == 200:
                 return res.json()['choices'][0]['message']['content'].strip()
-            print(f"    [Groq] Key {key[:8]}... → {res.status_code}")
+            print(f"    [Groq] Key {key[:8]}... -> {res.status_code}")
         except Exception as e:
             print(f"    [Groq] Key {key[:8]}... exception: {e}")
     return None
@@ -330,12 +467,12 @@ def generate_with_gemini(prompt):
                 timeout=20)
             if res.status_code == 200:
                 return res.json()['candidates'][0]['content']['parts'][0]['text'].strip()
-            print(f"    [Gemini] Key {key[:6]}... → {res.status_code}")
+            print(f"    [Gemini] Key {key[:6]}... -> {res.status_code}")
         except: pass
     return None
 
 def ai_generate(prompt):
-    """Try Groq → OpenRouter → Gemini in order."""
+    """Try Groq -> OpenRouter -> Gemini in order."""
     for fn in [generate_with_groq, generate_with_openrouter, generate_with_gemini]:
         out = fn(prompt)
         if out: return out
@@ -345,34 +482,141 @@ def ai_generate(prompt):
 # SHARED: FACEBOOK POSTING
 # ============================================================
 def get_page_token():
-    if not FB_PAGE_ACCESS_TOKEN or not FB_PAGE_ID: return None
-    url = f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}?fields=access_token&access_token={FB_PAGE_ACCESS_TOKEN}"
-    try:
-        r = requests.get(url, timeout=10); data = r.json()
-        if 'access_token' in data: return data['access_token']
-        print(f"    [FB Token Error] {data}")
-    except Exception as e: print(f"    [FB Exception] {e}")
+    if not FB_PAGE_ID:
+        return None
+
+    if isinstance(FB_PAGE_ACCESS_TOKEN, str) and FB_PAGE_ACCESS_TOKEN.startswith(('EA', 'EAA')):
+        return FB_PAGE_ACCESS_TOKEN
+
+    if isinstance(FB_USER_ACCESS_TOKEN, str) and FB_USER_ACCESS_TOKEN.startswith(('EA', 'EAA')):
+        return FB_USER_ACCESS_TOKEN
+
+    if FB_PAGE_ACCESS_TOKEN and FB_PAGE_ID:
+        url = f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}?fields=access_token&access_token={FB_PAGE_ACCESS_TOKEN}"
+        try:
+            r = requests.get(url, timeout=10)
+            data = r.json()
+            if 'access_token' in data:
+                return data['access_token']
+            print(f"    [FB Token Error] {data}")
+        except Exception as e:
+            print(f"    [FB Exception] {e}")
+
     return None
 
-def post_to_facebook(image_path, caption):
+def post_to_facebook(image_path, caption, token=None):
     if not FB_PAGE_ID or not FB_PAGE_ACCESS_TOKEN:
-        print("    [!] FB credentials missing."); return False
+        print("    [!] FB credentials missing.")
+        return False
     if not os.path.exists(image_path):
-        print(f"    [!] Image file missing: {image_path}"); return False
+        print(f"    [!] Image file missing: {image_path}")
+        return False
     if os.path.getsize(image_path) < 5000:
-        print(f"    [!] Image too small (likely blank/error): {image_path}"); return False
-    token = get_page_token()
-    if not token: print("    [!] No page token."); return False
+        print(f"    [!] Image too small (likely blank/error): {image_path}")
+        return False
+    if token is None:
+        token = get_page_token()
+    if not token:
+        print("    [!] No page token.")
+        return False
     try:
         with open(image_path, 'rb') as f:
             r = requests.post(
                 f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}/photos",
                 data={'message': caption, 'access_token': token},
                 files={'source': f}, timeout=60)
-        if r.status_code == 200: print("    [OK] Posted to Facebook!"); return True
-        err = r.json().get('error', {})
-        print(f"    [FB Error {r.status_code}] {err.get('message', r.text[:200])}"); return False
-    except Exception as e: print(f"    [FB Exception] {e}"); return False
+        if r.status_code == 200:
+            print(f"    [OK] Posted to Facebook image: {os.path.basename(image_path)}")
+            return True
+        try:
+            data = r.json()
+            err = data.get('error', {})
+            msg = err.get('message', r.text[:200]) if isinstance(err, dict) else str(err)
+            if isinstance(err, dict):
+                print(f"    [FB Error {r.status_code}] code={err.get('code')} type={err.get('type')} msg={msg}")
+            else:
+                print(f"    [FB Error {r.status_code}] {msg}")
+        except Exception:
+            msg = r.text[:250]
+            print(f"    [FB Error {r.status_code}] {msg}")
+        return False
+    except Exception as e:
+        print(f"    [FB Exception] {e}")
+        return False
+
+
+def post_to_facebook_video(video_path, caption, token=None):
+    if not FB_PAGE_ID or not FB_PAGE_ACCESS_TOKEN:
+        return False
+    if not os.path.exists(video_path):
+        return False
+    if token is None:
+        token = get_page_token()
+    if not token:
+        return False
+        
+    try:
+        file_size = os.path.getsize(video_path)
+        
+        # Phase 1: INITIALIZE
+        init_payload = {
+            'upload_phase': 'INITIALIZE',
+            'access_token': token
+        }
+        r_init = requests.post(f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}/video_reels", data=init_payload, timeout=30)
+        if r_init.status_code != 200:
+            print(f"    [FB Reels Init Error {r_init.status_code}] {r_init.text[:200]}")
+            return False
+            
+        init_data = r_init.json()
+        video_id = init_data.get('video_id')
+        upload_url = init_data.get('upload_url')
+        
+        if not video_id or not upload_url:
+            print("    [FB Reels] Missing video_id or upload_url in Init response.")
+            return False
+            
+        # Phase 2: UPLOAD
+        with open(video_path, 'rb') as f:
+            headers = {
+                'Authorization': f'OAuth {token}',
+                'offset': '0',
+                'file_size': str(file_size)
+            }
+            r_upload = requests.post(upload_url, headers=headers, data=f, timeout=120)
+            if r_upload.status_code != 200:
+                print(f"    [FB Reels Upload Error {r_upload.status_code}] {r_upload.text[:200]}")
+                return False
+                
+        # Phase 3: FINISH
+        finish_payload = {
+            'upload_phase': 'FINISH',
+            'video_id': video_id,
+            'video_state': 'PUBLISHED',
+            'description': caption,
+            'access_token': token
+        }
+        r_finish = requests.post(f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}/video_reels", data=finish_payload, timeout=30)
+        if r_finish.status_code == 200:
+            print(f"    [OK] Posted Facebook Reels video: {os.path.basename(video_path)}")
+            return True
+            
+        print(f"    [FB Reels Finish Error {r_finish.status_code}] {r_finish.text[:200]}")
+        return False
+        
+    except Exception as e:
+        print(f"    [FB Video Exception] {e}")
+        return False
+
+
+
+def post_image_and_video(image_path, caption, token=None):
+    image_ok = post_to_facebook(image_path, caption, token=token)
+    video_path = image_path.replace('.png', '.mp4')
+    video_ok = False
+    if os.path.exists(video_path):
+        video_ok = post_to_facebook_video(video_path, caption, token=token)
+    return image_ok, video_ok, video_path
 
 # ============================================================
 # SHARED: PEXELS IMAGE
@@ -389,6 +633,167 @@ def get_pexels_image(keyword):
     return None
 
 # ============================================================
+# INTELLIGENT IMAGE SELECTION
+# ============================================================
+def should_use_pexels_api(headline, category):
+    """Determine if we should use Pexels API instead of article image.
+    Strictly map 'Politics', 'Local News', 'Breaking News' to use original images.
+    Only fallback to Pexels for evergreen categories."""
+    
+    # Evergreen categories safe for Pexels
+    evergreen_categories = ["TECH", "ENTERTAINMENT", "BUSINESS", "LIFESTYLE", "FINANCE", "TRIVIA"]
+    if category.upper() not in evergreen_categories:
+        return False
+        
+    headline_lower = headline.lower()
+    pexels_unsafe_topics = [
+        'mbappe', 'ronaldo', 'messi', 'neymar', 'shah', 'dahal', 'oli', 'prachanda',
+        'police', 'murder', 'accident', 'crime', 'arrest', 'nepali police',
+        'person', 'minister', 'president', 'pm', 'actor', 'actress', 'celebrity',
+        'nepal', 'kathmandu', 'pokhara', 'biratnagar', 'bhaktapur'
+    ]
+    
+    # If contains unsafe keywords, use article image
+    for unsafe in pexels_unsafe_topics:
+        if unsafe in headline_lower:
+            return False
+            
+    return True
+
+def select_best_image(headline, article_image_url, category, box1):
+    """Smart image selection: article > Pexels for generic topics > fallback."""
+    
+    # If article has good image, prefer it
+    if article_image_url and 'placeholder' not in article_image_url.lower():
+        return article_image_url
+    
+    # Only try Pexels for generic, safe topics
+    if should_use_pexels_api(headline, category):
+        pexels_img = get_pexels_image(box1)
+        if pexels_img:
+            return pexels_img
+    
+    # Fallback to safe Unsplash image
+    return "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=1080&h=1350&fit=crop"
+
+# ============================================================
+# PARALLEL POSTING ENGINE
+# ============================================================
+def post_to_facebook_safe(image_path, caption, retry_count=0, token=None):
+    """Thread-safe wrapper for posting. Returns (success, msg)."""
+    try:
+        if not os.path.exists(image_path):
+            return False, f"Image missing: {os.path.basename(image_path)}"
+
+        if os.path.getsize(image_path) < 5000:
+            return False, f"Image too small: {os.path.basename(image_path)}"
+
+        image_ok, video_ok, video_path = post_image_and_video(image_path, caption, token=token)
+        if image_ok or video_ok:
+            return True, f"Posted: {os.path.basename(image_path)}" + (f" + {os.path.basename(video_path)}" if video_ok else "")
+        if retry_count < 1:
+            time.sleep(5)
+            return post_to_facebook_safe(image_path, caption, retry_count + 1, token=token)
+        return False, f"Post failed: {os.path.basename(image_path)}"
+    except Exception as e:
+        return False, f"Exception posting {os.path.basename(image_path)}: {str(e)[:80]}"
+
+def post_images_parallel(images_to_post, max_workers=4, max_concurrent=3, token=None):
+    """Post multiple images in parallel with anti-spam delays.
+    
+    Args:
+        images_to_post: List of (img_path, caption, fname, title) tuples
+        max_workers: Thread pool size (default 4)
+        max_concurrent: Max images to post concurrently (default 3)
+        token: optional Facebook page token to reuse for all posts
+    
+    Returns:
+        (posted_count, failed_list)
+    """
+    if not images_to_post:
+        return 0, []
+    if token is None:
+        token = get_page_token()
+    
+    print(f"\n  [Parallel Posting] Starting with {len(images_to_post)} images...")
+    posted_count = 0
+    failed_posts = []
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {}
+        idx = 0
+        
+        while idx < len(images_to_post) or futures:
+            # Submit new tasks up to max_concurrent limit
+            while idx < len(images_to_post) and len(futures) < max_concurrent:
+                img_path, caption, fname, original_title = images_to_post[idx]
+                
+                # Reload history to check for parallel duplicates
+                history = load_history()
+                if is_duplicate(original_title, history):
+                    print(f"    [SKIP] Already posted (parallel race): {original_title[:40]}")
+                    idx += 1
+                    continue
+                
+                future = executor.submit(post_to_facebook_safe, img_path, caption, 0, token)
+                futures[future] = (idx, img_path, caption, fname, original_title)
+                idx += 1
+            
+            if not futures:
+                break
+            
+            try:
+                done = next(as_completed(futures, timeout=120))
+            except StopIteration:
+                break
+            except Exception as e:
+                print(f"    [Future Timeout/Error] {e}")
+                continue
+            try:
+                result = done.result(timeout=60)
+                success, msg = result
+                _, img_path, caption, fname, original_title = futures.pop(done)
+                
+                if success:
+                    posted_count += 1
+                    history = load_history()
+                    add_to_history(original_title, history)
+                    save_history(history)
+                    
+                    try:
+                        shutil.move(img_path, os.path.join(POSTED_DIR, fname))
+                        cap_file = img_path.replace('.png', '.txt')
+                        if os.path.exists(cap_file):
+                            try:
+                                shutil.move(cap_file, os.path.join(POSTED_DIR, os.path.basename(cap_file)))
+                            except:
+                                pass
+                        video_path = img_path.replace('.png', '.mp4')
+                        if os.path.exists(video_path):
+                            try:
+                                shutil.move(video_path, os.path.join(POSTED_DIR, os.path.basename(video_path)))
+                            except:
+                                pass
+                    except Exception as e:
+                        print(f"    [Move Error] {e}")
+                    
+                    print(f"    ✓ {msg}")
+                    
+                    if posted_count < len(images_to_post):
+                        delay = random.randint(30, 60)
+                        time.sleep(delay)
+                else:
+                    failed_posts.append((img_path, fname, original_title, msg))
+                    print(f"    ✗ {msg}")
+            except Exception as e:
+                print(f"    [Future Result Error] {e}")
+                if done in futures:
+                    del futures[done]
+    
+    print(f"  [Parallel Posting] Completed: {posted_count} posted, {len(failed_posts)} failed")
+    return posted_count, failed_posts
+
+# ============================================================
 # MODE 1 — NEWS SCRAPER
 # ============================================================
 def fetch_full_article(url):
@@ -396,6 +801,34 @@ def fetch_full_article(url):
         r = requests.get(url, headers=HEADERS, timeout=15, verify=False)
         if r.status_code != 200: return "", None
         soup = BeautifulSoup(r.text, 'html.parser')
+        
+        # 3-HOUR TIME WINDOW CHECK
+        pub_time_str = None
+        time_tag = soup.find('meta', property='article:published_time') or soup.find('meta', attrs={'name': 'publish-date'})
+        if time_tag and time_tag.get('content'):
+            pub_time_str = time_tag['content']
+        else:
+            time_tag = soup.find('time')
+            if time_tag and time_tag.get('datetime'):
+                pub_time_str = time_tag['datetime']
+                
+        if pub_time_str:
+            try:
+                # Basic ISO format parser
+                clean_time = pub_time_str.replace('Z', '+00:00')
+                if len(clean_time) > 19 and '+' not in clean_time[19:] and '-' not in clean_time[19:]:
+                    clean_time = clean_time[:19] + '+00:00'
+                pub_dt = datetime.fromisoformat(clean_time)
+                now_utc = datetime.now(timezone.utc)
+                if pub_dt.tzinfo is None:
+                    pub_dt = pub_dt.replace(tzinfo=timezone.utc)
+                age_hours = (now_utc - pub_dt).total_seconds() / 3600
+                if age_hours > 3:
+                    print(f"    [SKIP] Article is {age_hours:.1f} hours old (threshold is 3h).")
+                    return "", None
+            except Exception as e:
+                pass
+
         paras = [p.get_text(strip=True) for p in soup.find_all('p') if len(p.get_text(strip=True)) > 40]
         img_url = None
         for meta in ['og:image', 'twitter:image']:
@@ -407,19 +840,64 @@ def fetch_full_article(url):
         return "\n".join(paras[:7]), img_url
     except: return "", None
 
+def generate_fallback_ai_output(title, full_story):
+    title = (title or "News Update").strip()
+    story = (full_story or "").strip()
+    first_sentence = story.split('.')[0].strip() if story else title
+    if len(first_sentence) > 120:
+        first_sentence = first_sentence[:117] + "..."
+
+    text = title.lower()
+    if any(k in text for k in ["tech", "app", "phone", "software", "ai", "internet", "digital", "robot"]):
+        category = "TECH"
+        box1, box2 = "TECH UPDATE", "DIGITAL SHIFT"
+    elif any(k in text for k in ["election", "government", "parliament", "minister", "policy", "politics", "party", "cabinet"]):
+        category = "POLITICS"
+        box1, box2 = "POLITICAL NEWS", "PUBLIC UPDATE"
+    elif any(k in text for k in ["stock", "market", "business", "finance", "price", "budget", "trade", "investment"]):
+        category = "BUSINESS"
+        box1, box2 = "BUSINESS NEWS", "MARKET WATCH"
+    elif any(k in text for k in ["sport", "football", "cricket", "match", "cup", "league", "team"]):
+        category = "SPORTS"
+        box1, box2 = "SPORTS UPDATE", "GAME ON"
+    elif any(k in text for k in ["film", "movie", "celebrity", "music", "entertainment", "actor"]):
+        category = "ENTERTAINMENT"
+        box1, box2 = "ENTERTAINMENT", "POPULAR CULTURE"
+    else:
+        category = "GENERAL"
+        box1, box2 = "BREAKING NEWS", "LOCAL UPDATE"
+
+    headline = title if len(title) <= 90 else title[:87] + "..."
+    caption = f"{headline}. {first_sentence}" if first_sentence else f"{headline}. Details are being shared as they become available."
+    short_summary = headline if len(headline) <= 40 else headline[:37] + "..."
+    hashtags = "#Nepal #News #Update"
+    intent = "ARTICLE" if story else "PEXELS"
+
+    return f"""RED_BOX_1: {box1}
+RED_BOX_2: {box2}
+HEADLINE: {headline}
+CAPTION: {caption}
+SHORT_SUMMARY: {short_summary}
+HASHTAGS: {hashtags}
+CATEGORY: {category}
+IMAGE_INTENT: {intent}"""
+
+
 def ai_rewrite_news(title, full_story):
-    prompt = f"""You are an expert News Journalist. Read the following scraped text and generate content.
+    prompt = f"""You are an expert News Journalist for an English-only publication.
+Read the following scraped text and generate content.
 If the text is gibberish or not a real news article, output exactly: SKIP
 
 STRICT RULES:
-1. RED_BOX_1: Short, punchy, high-impact phrase (4-7 words)
-2. RED_BOX_2: Secondary punchy phrase (2-5 words)
-3. HEADLINE: Full, detailed headline (10-25 words)
-4. CAPTION: A well-written, highly detailed paragraph (70-120 words) explaining the news thoroughly. No emojis. Be factual.
-5. SHORT_SUMMARY: A very short 1-2 sentence excerpt (15-25 words) that will be displayed directly ON the image.
-6. HASHTAGS: 3 to 5 relevant hashtags based on the news (e.g. #Politics #Nepal #Update).
-7. CATEGORY: You MUST choose exactly ONE of these options: POLITICS, BUSINESS, TECH, SPORTS, ENTERTAINMENT, GENERAL
-8. IMAGE_INTENT: PEXELS or ARTICLE
+1. MUST BE 100% ENGLISH. ABSOLUTELY NO DEVANAGARI SCRIPT. TRANSLATE EVERYTHING TO PUNCHY ENGLISH.
+2. RED_BOX_1: Short, punchy, high-impact phrase (4-7 words)
+3. RED_BOX_2: Secondary punchy phrase (2-5 words)
+4. HEADLINE: Full, detailed headline (Strictly Max 8-10 words. Do not exceed this.)
+5. CAPTION: A well-written, highly detailed paragraph (70-120 words) explaining the news thoroughly. No emojis. Be factual.
+6. SHORT_SUMMARY: A very short 1-2 sentence excerpt (15-25 words) that will be displayed directly ON the image.
+7. HASHTAGS: 3 to 5 relevant hashtags based on the news (e.g. #Politics #Nepal #Update).
+8. CATEGORY: You MUST choose exactly ONE of these options: POLITICS, BUSINESS, TECH, SPORTS, ENTERTAINMENT, GENERAL
+9. IMAGE_INTENT: PEXELS or ARTICLE
 
 Original Title: {title}
 Article Content:
@@ -436,7 +914,10 @@ SHORT_SUMMARY: [summary]
 HASHTAGS: [hashtags]
 CATEGORY: [category]
 IMAGE_INTENT: [ARTICLE or PEXELS]"""
-    return ai_generate(prompt)
+    out = ai_generate(prompt)
+    if out and out.strip() != "SKIP":
+        return out
+    return generate_fallback_ai_output(title, full_story)
 
 def parse_news_ai(output):
     box1, box2, headline, caption, short_summary, hashtags, category, intent = "BREAKING NEWS", "UPDATE", "News Update", "", "", "#News #NepalCentralNews", "GENERAL", "PEXELS"
@@ -490,8 +971,8 @@ def run_mode_1_news():
     print("\n[MODE 1] NEWS SCRAPER")
 
     # --- STEP 1: Post any already-generated images first (fast, no AI/scraping) ---
-    MAX_PER_RUN = 5
-    backlog_posted = post_backlog(max_to_post=3)
+    MAX_PER_RUN = 8  # Increased from 5 to post more content
+    backlog_posted = post_backlog(max_to_post=5)  # Increased from 3 to 5
     remaining_slots = MAX_PER_RUN - backlog_posted
 
     if remaining_slots <= 0:
@@ -522,7 +1003,7 @@ def run_mode_1_news():
                 if not title_tag: continue
                 title_text = title_tag.get_text(strip=True)
                 if not title_text or len(title_text) < 15: continue
-                if title_text in history or is_similar_duplicate(title_text, history): continue
+                if is_duplicate(title_text, history): continue
 
                 link_tag = container.find('a', href=True) or title_tag.find('a', href=True)
                 full_link = urljoin(site['url'], link_tag['href']) if link_tag else site['url']
@@ -532,21 +1013,16 @@ def run_mode_1_news():
                 if not full_story: full_story = title_text
 
                 ai_out = ai_rewrite_news(title_text, full_story)
-                if not ai_out: print("    [Skip] AI failed."); continue
-                if ai_out.strip() == "SKIP": print("    [Skip] AI flagged as non-news."); continue
+                if not ai_out:
+                    print("    [Skip] AI failed and no fallback content was generated.")
+                    continue
 
                 headline, box1, box2, caption_text, short_summary, hashtags, category, intent = parse_news_ai(ai_out)
                 articles_found += 1
                 # NOTE: We do NOT add to history here yet — only after confirmed successful post
 
-                bg_final = None
-                kw = box1
-                if intent == "PEXELS":
-                    bg_final = get_pexels_image(kw) or bg_img
-                else:
-                    bg_final = bg_img or get_pexels_image(kw)
-                if not bg_final:
-                    bg_final = "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=1080&h=1350&fit=crop"
+                # SMART IMAGE SELECTION: Article image > Pexels for generic topics > Fallback
+                bg_final = select_best_image(headline, bg_img, category, box1)
 
                 html = generate_news_card(headline, box1, box2, bg_final, category, short_summary)
                 safe = re.sub(r'[^a-zA-Z0-9]', '_', headline)[:50]
@@ -557,14 +1033,20 @@ def run_mode_1_news():
                 if not os.path.exists(img_path) or os.path.getsize(img_path) < 5000:
                     print(f"    [Skip] Image generation failed for: {fname}"); continue
                 
-                # Format final Facebook caption
+                # Format final Facebook caption with proper structure
                 full_caption = f"""{headline}
-
 {caption_text}
 
 Credit: {site['name']}
 
 {hashtags} #NepalCentralNews"""
+
+                video_path = os.path.join(OUTPUT_DIR, f"{os.path.splitext(fname)[0]}.mp4")
+                video_created = build_news_video(img_path, video_path, duration=5)
+                if video_created:
+                    print(f"    [Video] Created {os.path.basename(video_path)}")
+                else:
+                    print("    [Video] Using image-only fallback")
 
                 ready_to_post.append((img_path, full_caption, fname, title_text))
 
@@ -578,46 +1060,17 @@ Credit: {site['name']}
         return
 
     print(f"\n  [+] {len(ready_to_post)} articles ready. Posting up to {remaining_slots} more this run...")
-    posted_count = 0
+    token = get_page_token()
+    if not token:
+        print("  [!] Unable to post news: Facebook token invalid or missing.")
+        return
 
-    for i, (img_path, caption, fname, original_title) in enumerate(ready_to_post):
-        if posted_count >= remaining_slots:
-            print(f"    [Limit] Quota reached ({remaining_slots} new). Remaining images will post next run.")
-            break
-
-        # Re-load history fresh before each post to catch parallel runners
-        history = load_history()
-        if original_title in history or is_similar_duplicate(original_title, history):
-            print(f"    [SKIP] Already posted by another runner: {original_title[:50]}")
-            try:
-                if os.path.exists(img_path):
-                    os.remove(img_path)
-            except Exception:
-                pass
-            continue
-
-        success = post_to_facebook(img_path, caption)
-        if success:
-            posted_count += 1
-            # Immediately lock this article in history so no other device can re-post it
-            history.add(original_title)
-            save_history(history)
-            try:
-                shutil.move(img_path, os.path.join(POSTED_DIR, fname))
-            except Exception:
-                pass
-        else:
-            # Post failed — remove the image so it can be retried next run
-            try:
-                if os.path.exists(img_path):
-                    os.remove(img_path)
-            except Exception:
-                pass
-
-        if posted_count < MAX_PER_RUN and i < len(ready_to_post) - 1:
-            delay = random.randint(45, 90)
-            print(f"    [Anti-Spam] Sleeping {delay}s before next post...")
-            time.sleep(delay)
+    posted_count, failed_posts = post_images_parallel(ready_to_post[:remaining_slots], max_workers=4, max_concurrent=3, token=token)
+    print(f"  [Mode 1] News posted: {posted_count}/{min(remaining_slots, len(ready_to_post))}")
+    if failed_posts:
+        print("  [Mode 1] Failed posts:")
+        for _, fname, _, msg in failed_posts:
+            print(f"    {fname}: {msg}")
 
 # ============================================================
 # MODE 2 — NEPAL GOLD & SILVER RATES
@@ -747,7 +1200,7 @@ def run_mode_2_gold():
     print("\n[MODE 2] GOLD & SILVER RATES")
     history = load_history()
     today_key = f"GOLD_{get_nepal_now().strftime('%Y-%m-%d')}"
-    if today_key in history:
+    if is_duplicate(today_key, history):
         print("  [Skip] Gold rates already posted today."); return
     rates = scrape_gold_rates()
     if not rates:
@@ -781,7 +1234,7 @@ Rates sourced from FENEGOSIDA. These are the official bullion prices for today.
             try:
                 shutil.move(img_path, os.path.join(POSTED_DIR, fname))
             except Exception: pass
-            history.add(today_key)
+            add_to_history(today_key, history)
             save_history(history)
     else:
         print("  [!] Image generation failed or file is too small.")
@@ -873,7 +1326,7 @@ def run_mode_6_nepse():
     history = load_history()
     now = get_nepal_now()
     today_key = f"NEPSE_{now.strftime('%Y-%m-%d')}"
-    if today_key in history:
+    if is_duplicate(today_key, history):
         print("  [Skip] NEPSE already posted today."); return
 
     text = fetch_nepse_summary()
@@ -905,7 +1358,7 @@ Date: {now.strftime("%B %d, %Y")}
             try:
                 shutil.move(img_path, os.path.join(POSTED_DIR, fname))
             except Exception: pass
-            history.add(today_key)
+            add_to_history(today_key, history)
             save_history(history)
     else:
         print("  [!] Image generation failed or file is too small.")
@@ -1043,7 +1496,7 @@ def run_mode_3_otd():
     history = load_history()
     now = get_nepal_now()
     today_key = f"OTD_{now.strftime('%Y-%m-%d')}"
-    if today_key in history:
+    if is_duplicate(today_key, history):
         print("  [Skip] On This Day already posted today."); return
 
     raw_event = fetch_on_this_day()
@@ -1079,7 +1532,7 @@ Follow Nepal Central News for daily historical facts, news, and updates from Nep
             try:
                 shutil.move(img_path, os.path.join(POSTED_DIR, fname))
             except Exception: pass
-            history.add(today_key)
+            add_to_history(today_key, history)
             save_history(history)
     else:
         print("  [!] Image generation failed or file is too small.")
@@ -1189,7 +1642,7 @@ def run_mode_4_trivia():
     history = load_history()
     now = get_nepal_now()
     today_key = f"TRIVIA_{now.strftime('%Y-%m-%d')}"
-    if today_key in history:
+    if is_duplicate(today_key, history):
         print("  [Skip] Trivia already posted today."); return
 
     date_str = now.strftime("%B %d, %Y")
@@ -1222,7 +1675,7 @@ Follow Nepal Central News for daily trivia, news updates, and entertainment fact
             try:
                 shutil.move(img_path, os.path.join(POSTED_DIR, fname))
             except Exception: pass
-            history.add(today_key)
+            add_to_history(today_key, history)
             save_history(history)
     else:
         print("  [!] Image generation failed or file is too small.")
@@ -1342,7 +1795,7 @@ def run_mode_5_nasa():
     history = load_history()
     now = get_nepal_now()
     today_key = f"NASA_{now.strftime('%Y-%m-%d')}"
-    if today_key in history:
+    if is_duplicate(today_key, history):
         print("  [Skip] NASA APOD already posted today."); return
 
     apod = fetch_nasa_apod()
@@ -1379,7 +1832,7 @@ Follow Nepal Central News for daily space discoveries and science updates!
             try:
                 shutil.move(img_path, os.path.join(POSTED_DIR, fname))
             except Exception: pass
-            history.add(today_key)
+            add_to_history(today_key, history)
             save_history(history)
     else:
         print("  [!] Image generation failed or file is too small.")
@@ -1387,7 +1840,7 @@ Follow Nepal Central News for daily space discoveries and science updates!
 # ============================================================
 # MAIN DISPATCHER
 # ============================================================
-def main():
+def execute_cycle():
     init_dirs()
     cleanup_old_files()
     hour = get_nepal_hour()
@@ -1397,6 +1850,19 @@ def main():
     print(f"  Nepal Central News - Multi-Content Engine")
     print(f"  Nepal Time: {now.strftime('%I:%M %p, %b %d %Y')}  |  Hour: {hour}")
     print(f"{'='*60}")
+
+    # Write heartbeat IMMEDIATELY so monitor knows we're alive
+    try:
+        with open("data/last_heartbeat.txt", "w") as hb:
+            hb.write(datetime.now(timezone.utc).isoformat())
+    except Exception:
+        pass
+
+    cycle_start = time.time()
+
+    # Count posts BEFORE this run
+    history_before = load_history()
+    posts_before = len(history_before)
 
     # 1. Run Special Modes (they self-cancel if already posted today)
     if 10 <= hour <= 12:
@@ -1419,9 +1885,64 @@ def main():
     print("  -> Dispatching: MODE 1 - News Scraper")
     run_mode_1_news()
 
+    cycle_duration = int(time.time() - cycle_start)
+    history_after = load_history()
+    posts_after = len(history_after)
+    posts_this_run = posts_after - posts_before
+
+    # Next scrap time display (10 minute cycle)
+    next_min = ((now.minute // 10) + 1) * 10
+    next_dt = now.replace(minute=0, second=0, microsecond=0) + timedelta(minutes=next_min)
+    next_str = next_dt.strftime("~%I:%M %p")
+
+    # Write dashboard_stats.txt so monitor history shows this run
+    try:
+        stat_line = (
+            f"[{now.strftime('%Y-%m-%d %I:%M %p')}] "
+            f"Source: Local Laptop | "
+            f"Duration: {cycle_duration}s | "
+            f"Posts this run: {posts_this_run} | "
+            f"Total posts (all-time): {posts_after} | "
+            f"State synced: YES | "
+            f"Next scrap: {next_str}"
+        )
+        DASHBOARD_FILE = "dashboard_stats.txt"
+        existing = []
+        if os.path.exists(DASHBOARD_FILE):
+            with open(DASHBOARD_FILE, "r", encoding="utf-8") as df:
+                existing = [l.rstrip() for l in df if l.strip()]
+        existing.append(stat_line)
+        existing = existing[-200:]
+        with open(DASHBOARD_FILE, "w", encoding="utf-8") as df:
+            df.write("\n".join(existing) + "\n")
+    except Exception as e:
+        print(f"  [Dashboard] Write error: {e}")
+
+    # Refresh heartbeat at end of cycle too
+    try:
+        with open("data/last_heartbeat.txt", "w") as hb:
+            hb.write(datetime.now(timezone.utc).isoformat())
+    except Exception:
+        pass
+
     print(f"\n{'='*60}")
-    print("  Engine Complete!")
+    print(f"  Engine Cycle Complete! | Posts this run: {posts_this_run} | Total: {posts_after}")
     print(f"{'='*60}\n")
+
+def main():
+    # Detect CI vs Local environment
+    is_ci = os.environ.get("GITHUB_ACTIONS") == "true"
+    
+    if is_ci:
+        print("[ENV] Running in GitHub Actions CI mode. Executing ONE cycle.")
+        execute_cycle()
+    else:
+        print("[ENV] Running in Local Desktop mode. Executing INFINITE loop.")
+        sleep_interval = 600  # 10 minutes between cycles
+        while True:
+            execute_cycle()
+            print(f"[ENV] Sleeping for {sleep_interval//60} minutes before next cycle...")
+            time.sleep(sleep_interval)
 
 if __name__ == "__main__":
     main()
