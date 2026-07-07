@@ -59,28 +59,31 @@ def count_files(folder, ext=".png"):
 
 
 def is_scrapper_running():
-    """Use wmic to get full command line - tasklist doesn't show script paths."""
+    """Detect main.py using PowerShell (wmic deprecated on Windows 11)."""
     try:
+        cmd = (
+            'Get-WmiObject Win32_Process -Filter "name=\'python.exe\'" | '
+            'Select-Object -ExpandProperty CommandLine'
+        )
         out = subprocess.check_output(
-            ["wmic", "process", "where", "name='python.exe'", "get", "commandline", "/format:list"],
-            stderr=subprocess.DEVNULL, timeout=5
+            ["powershell", "-NoProfile", "-Command", cmd],
+            stderr=subprocess.DEVNULL, timeout=8
         ).decode("utf-8", "ignore")
-        script_name = os.path.basename(SCRAPPER_SCRIPT).lower()  # 'main.py'
+        script_name = os.path.basename(SCRAPPER_SCRIPT).lower()
         for line in out.splitlines():
             if script_name in line.lower():
                 return True
-        return False
     except Exception:
-        # Fallback: check for a fresh heartbeat (written every cycle by main.py)
-        try:
-            hb_path = HEARTBEAT_FILE
-            if os.path.exists(hb_path):
-                mtime = os.path.getmtime(hb_path)
-                age = time.time() - mtime
-                return age < 720  # Consider running if heartbeat < 12 min old
-        except Exception:
-            pass
-        return False
+        pass
+    # Fallback: heartbeat file freshness (< 12 min old = running)
+    try:
+        if os.path.exists(HEARTBEAT_FILE):
+            age = time.time() - os.path.getmtime(HEARTBEAT_FILE)
+            return age < 720
+    except Exception:
+        pass
+    return False
+
 
 
 def start_scrapper():
