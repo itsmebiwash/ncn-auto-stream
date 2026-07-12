@@ -99,50 +99,9 @@ Respond ONLY with this exact JSON structure:
 
 def verify_image_with_groq_vision(image_url):
     """
-    Verifies whether an image is a genuine editorial photo.
+    DEPRECATED: llama-3.2-90b-vision-preview was decommissioned by Groq.
+    The scraper now uses a lightweight HTTP HEAD check instead (_is_image_accessible).
+    This function is kept for backward compatibility but always returns 'not faulty'.
     """
-    system_prompt = '''Analyze this news website image.
-Determine if this image is a genuine editorial photo of a news event, person, or location,
-OR if it is a website logo, stock promotional banner, advertisement, or broken graphic.
+    return {"is_faulty_or_ad_image": False, "reason": "vision_check_replaced_by_http_head"}
 
-Respond ONLY with this JSON:
-{
-  "is_faulty_or_ad_image": false,
-  "reason": "string"
-}'''
-
-    max_attempts = 5
-    for attempt in range(max_attempts):
-        api_key = groq_pool.get_active_key()
-        if not api_key:
-            print("[Groq Vision] All keys blocked.")
-            return {"is_faulty_or_ad_image": True, "reason": "All keys blocked"}
-
-        client = Groq(api_key=api_key)
-
-        try:
-            chat_completion = client.chat.completions.create(
-                messages=[{
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": system_prompt},
-                        {"type": "image_url", "image_url": {"url": image_url}}
-                    ]
-                }],
-                model="llama-3.2-90b-vision-preview",
-                response_format={"type": "json_object"},
-                temperature=0.0
-            )
-            response_content = chat_completion.choices[0].message.content
-            return json.loads(response_content)
-
-        except Exception as e:
-            error_str = str(e).lower()
-            if "429" in error_str or "rate limit" in error_str:
-                groq_pool.mark_key_blocked(api_key, retry_after_seconds=30)
-            else:
-                print(f"[Groq Vision Error] {e}")
-                return {"is_faulty_or_ad_image": True, "reason": str(e)}
-            time.sleep(1)
-
-    return {"is_faulty_or_ad_image": True, "reason": "Max retries exceeded"}
