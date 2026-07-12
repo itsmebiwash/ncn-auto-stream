@@ -41,14 +41,22 @@ def post_reel_to_facebook(article_dict, video_path):
             return False, f"Failed to initialise upload session: {init_data}"
 
         # ── Step 2: Transfer video binary ────────────────────────
+        # rupload.facebook.com requires: offset, Content-Length, X-Entity-Length
+        file_size = os.path.getsize(video_path)
         with open(video_path, "rb") as f:
             upload_resp = requests.post(
                 upload_url,
-                headers={"Authorization": f"OAuth {FB_ACCESS_TOKEN}", "file_offset": "0"},
+                headers={
+                    "Authorization": f"OAuth {FB_ACCESS_TOKEN}",
+                    "offset": "0",
+                    "Content-Length": str(file_size),
+                    "X-Entity-Length": str(file_size),
+                },
                 data=f,
-                timeout=120
+                timeout=300
             )
-            upload_resp.raise_for_status()
+            if upload_resp.status_code not in (200, 204):
+                return False, f"Reel upload Step 2 error: {upload_resp.text}"
 
         # ── Step 3: Finish & publish ─────────────────────────────
         finish_resp = requests.post(

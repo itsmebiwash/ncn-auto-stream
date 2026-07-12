@@ -2,48 +2,23 @@ import os
 import base64
 from datetime import datetime
 
-# Map category names that don't have their own template to the closest match
-_CATEGORY_TEMPLATE_MAP = {
-    # Direct matches (template file exists)
-    'politics':       'Politics.html',
-    'crime':          'Politics.html',   # Crime → Politics template (closest)
-    'business':       'Business.html',
-    'sports':         'Sports.html',
-    'health':         'Health.html',
-    'technology':     'Technology.html',
-    'education':      'Education.html',
-    'entertainment':  'Entertainment.html',
-    'international':  'International.html',
-    'environment':    'Enviroment.html',  # Note: typo in actual filename
-    'science':        'Science.html',
-    'lifestyle':      'lifestyle.html',
-    'weather':        'Weather.html',
-    'opinion':        'Opinion.html',
-    'local':          'Local.html',
-    'general':        'news_template.html',
-}
-
-_FALLBACK_TEMPLATE = 'news_template.html'
-
-
-def _resolve_template(category: str, template_dir: str) -> str:
+def _resolve_template(article_index: int, template_dir: str) -> str:
     """
-    Returns the absolute path to the best-matching template file.
-    Falls back to news_template.html if the category template is missing.
+    Returns the absolute path to a template file sequentially (template_01.html ... template_16.html).
     """
-    cat_key = category.strip().lower()
-    template_file = _CATEGORY_TEMPLATE_MAP.get(cat_key, _FALLBACK_TEMPLATE)
+    template_num = ((article_index - 1) % 16) + 1
+    template_file = f"template_{template_num:02d}.html"
     template_path = os.path.join(template_dir, template_file)
 
     if not os.path.exists(template_path):
-        # Last resort fallback
-        template_path = os.path.join(template_dir, _FALLBACK_TEMPLATE)
+        # Last resort fallback if template renaming hasn't happened or file is missing
+        template_path = os.path.join(template_dir, 'news_template.html')
 
     return template_path
 
 
 def render_html_card(image_path: str, category: str, headline: str,
-                     subtitle: str, output_path: str):
+                     subtitle: str, output_path: str, index: int = 1):
     """
     Renders a 1080×1350 news card using HTML2Image.
     Selects the correct template based on the AI-detected article category.
@@ -52,7 +27,7 @@ def render_html_card(image_path: str, category: str, headline: str,
     """
     try:
         template_dir = os.path.join(os.path.dirname(__file__), '..', 'templates')
-        template_path = _resolve_template(category, template_dir)
+        template_path = _resolve_template(index, template_dir)
 
         with open(template_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
@@ -73,7 +48,7 @@ def render_html_card(image_path: str, category: str, headline: str,
         # Replace all known placeholder variants
         replacements = {
             '{IMAGE_URL}':        img_data_uri,
-            '{CATEGORY_BADGE}':   category,
+            '{CATEGORY_BADGE}':   'UPDATE:',
             '{HEADLINE_TITLE}':   headline,
             '{BODY_DESCRIPTION}': subtitle,
             '{BRAND_LOGO_URL}':   logo_data_uri,

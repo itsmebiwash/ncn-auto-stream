@@ -4,7 +4,7 @@
 :: It is placed in the Windows Startup folder so it auto-runs on boot.
 
 set "SCRIPT_DIR=%~dp0"
-set "PYTHON=C:\Users\biwas\AppData\Local\Programs\Python\Python314\python.exe"
+set "PYTHON=python"
 set "LOG=%SCRIPT_DIR%logs\autostart.log"
 
 :: Create logs directory if it doesn't exist

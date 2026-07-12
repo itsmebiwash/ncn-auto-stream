@@ -103,10 +103,7 @@ def build_facebook_caption(fb_caption_text, hashtags_list, source_name, category
     body       = _sanitise_caption(fb_caption_text)
     hashtag_str = _sanitise_hashtags(hashtags_list)
 
-    if category.lower() == "international":
-        source_label = f"Source: {source_name}"
-    else:
-        source_label = f"स्रोत: {source_name}"
+    source_label = f"Source: {source_name}"
 
     return f"{body}\n\n{source_label}\n\n{hashtag_str}"
 

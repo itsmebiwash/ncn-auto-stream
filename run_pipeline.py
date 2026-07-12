@@ -34,6 +34,7 @@ from facebook.reels_publisher import post_reel_to_facebook
 from utils.reel_generator import generate_news_reel
 from utils.heartbeat import record_laptop_heartbeat, is_laptop_active
 from utils.cleanup import run_cleanup
+from utils.logger import log_feedback
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 SLOT_DURATION   = 240    # 4 minutes per news item (image + reel + sleep)
@@ -84,22 +85,10 @@ def _mark_requeue(db, article):
     )
 
 
-def _generate_and_post_reel(article):
-    image_path = article.get('final_image_path')
-    if not image_path or not os.path.exists(image_path):
-        print('  [Reel] Skipped – card image not found.')
-        return None, None
-
-    slug = article.get('topic_slug', str(article['_id']))
-    os.makedirs(os.path.join('output', 'ready_reels'), exist_ok=True)
-    out_reel = os.path.abspath(os.path.join('output', 'ready_reels', f'{slug}.mp4'))
-
-    headline = article.get('english_headline', 'Nepal Central News')
-    print(f'  [Reel] Generating → {os.path.basename(out_reel)}')
-    reel_path = generate_news_reel(image_path, headline, out_reel)
-
-    if not reel_path:
-        print('  [Reel] Generation failed.')
+def _post_pre_rendered_reel(article):
+    reel_path = article.get('final_reel_path')
+    if not reel_path or not os.path.exists(reel_path):
+        print('  [Reel] Skipped – pre-rendered reel not found.')
         return None, None
 
     reel_success, reel_id = post_reel_to_facebook(article, reel_path)
@@ -110,6 +99,26 @@ def _generate_and_post_reel(article):
         reel_id = None
 
     return reel_path, reel_id
+
+
+def pre_render_reels(articles):
+    print(f"\n[Pre-Render] Generating reels for {len(articles)} articles...")
+    for i, art in enumerate(articles, 1):
+        image_path = art.get('final_image_path')
+        if not image_path or not os.path.exists(image_path):
+            continue
+            
+        slug = art.get('topic_slug', str(art['_id']))
+        os.makedirs(os.path.join('output', 'ready_reels'), exist_ok=True)
+        out_reel = os.path.abspath(os.path.join('output', 'ready_reels', f'{slug}.mp4'))
+        
+        if not os.path.exists(out_reel):
+            headline = art.get('english_headline', 'Nepal Central News')
+            print(f'  [{i}/{len(articles)}] Generating reel → {os.path.basename(out_reel)}')
+            reel_path = generate_news_reel(image_path, headline, out_reel)
+            art['final_reel_path'] = reel_path
+        else:
+            art['final_reel_path'] = out_reel
 
 
 # ── Core 240-second slot processor ───────────────────────────────────────────
@@ -155,8 +164,8 @@ def process_article_slot(article, slot_index, total, db):
         print(f'  [Waiting {reel_wait:.0f}s before reel...]')
         time.sleep(reel_wait)
 
-    print(f'  [T+{int(time.time()-slot_start)}s] Posting reel to Facebook Reels...')
-    reel_path, reel_id = _generate_and_post_reel(article)
+    print(f'  [T+{int(time.time()-slot_start)}s] Posting pre-rendered reel to Facebook Reels...')
+    reel_path, reel_id = _post_pre_rendered_reel(article)
 
     # ── Step 3: Mark posted, delete local files immediately ────
     _mark_posted(db, article, fb_id_or_err, reel_id)
@@ -176,6 +185,8 @@ def process_article_slot(article, slot_index, total, db):
 
     # ── Step 4: Sleep for remainder of 240s slot ────────────────
     elapsed    = time.time() - slot_start
+    log_feedback(article, fb_post_id=fb_id_or_err, reel_id=reel_id, processing_time_sec=elapsed)
+    
     sleep_for  = SLOT_DURATION - elapsed
     if sleep_for > 0:
         print(f'  [TIMER] Sleeping {sleep_for:.1f}s until T+240s...')
@@ -221,6 +232,8 @@ def run_batch_schedule():
     if not top_articles:
         print('[Phase 3] No articles ready. Exiting.')
         return
+        
+    pre_render_reels(top_articles)
 
     db = get_db()
     posted_count = 0
@@ -280,6 +293,8 @@ def run_continuous_mode():
                 record_laptop_heartbeat()
                 time.sleep(60)
             continue
+            
+        pre_render_reels(top_articles)
 
         print(f'[Queue] {len(top_articles)} articles ready. '
               f'Starting 4-min slot schedule...\n')
@@ -313,6 +328,8 @@ def run_continuous_mode():
                 print('\n[Adaptive] Background scrape triggered early...')
                 scrape_and_score_all()
                 render_images_for_top_n(TOP_N)
+                
+                # We do NOT pre_render_reels here because they will be fetched on the next cycle
                 next_scrape_at = float('inf')   # don't trigger again this cycle
 
         print(f'\n[Cycle complete] Waiting for next scheduled scrape...')

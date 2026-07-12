@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Weather Vertical News Card</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Montserrat:wght@700;800;900&family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        html,
+        body {
+            width: 1080px;
+            height: 1350px;
+            overflow: hidden;
+            background: #060d16;
+        }
+
+        .card {
+            position: relative;
+            width: 1080px;
+            height: 1350px;
+            overflow: hidden;
+            background-image: url('{IMAGE_URL}');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-color: #0c1b2e;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Gradient overlay: dark bottom ~58%, light top for badge/logo legibility */
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(to bottom,
+                    rgba(4, 9, 16, 0.30) 0%,
+                    rgba(4, 9, 16, 0.02) 24%,
+                    rgba(5, 12, 20, 0.55) 44%,
+                    rgba(3, 9, 17, 0.90) 66%,
+                    rgba(2, 6, 12, 0.98) 100%);
+            z-index: 1;
+        }
+
+        /* Weather vibe: Cyan / Sky Blue / Slate storm accents */
+        .accent-glow {
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 88% 8%, rgba(56, 189, 248, 0.32) 0%, rgba(56, 189, 248, 0) 42%),
+                radial-gradient(circle at 4% 96%, rgba(59, 130, 246, 0.36) 0%, rgba(59, 130, 246, 0) 50%);
+            z-index: 2;
+            mix-blend-mode: screen;
+        }
+
+        /* ===== TOP BAR ===== */
+        .top-bar {
+            position: relative;
+            z-index: 5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 52px 56px 0 56px;
+        }
+
+        .category-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            background: linear-gradient(135deg, #38bdf8 0%, #0369a1 100%);
+            color: #ffffff;
+            font-family: 'Poppins', sans-serif;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: 12px 28px;
+            border-radius: 999px;
+            box-shadow: 0 8px 24px rgba(56, 189, 248, 0.45);
+        }
+
+        .category-badge::before {
+            content: "";
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #ffffff;
+            display: inline-block;
+        }
+
+        .brand img {
+            height: 48px;
+            width: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
+        }
+
+        /* ===== SPACER pushes content box to bottom ===== */
+        .spacer {
+            flex: 1 1 auto;
+        }
+
+        /* ===== ADAPTIVE CONTENT BOX ===== */
+        .content-box {
+            position: relative;
+            z-index: 5;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            padding: 48px 56px 44px 56px;
+        }
+
+        .headline {
+            color: #ffffff;
+            font-family: 'Montserrat', 'Archivo Black', sans-serif;
+            font-size: 52px;
+            font-weight: 900;
+            line-height: 1.15;
+            letter-spacing: -0.5px;
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.55);
+
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .description {
+            color: #ffffff;
+            opacity: 0.88;
+            font-family: 'Inter', 'Poppins', sans-serif;
+            font-size: 26px;
+            font-weight: 500;
+            line-height: 1.45;
+
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* ===== FOOTER BAR ===== */
+        .footer-bar {
+            position: relative;
+            z-index: 6;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 26px 56px;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.15) 100%);
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .footer-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .source-text {
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .dot-sep {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .date-text {
+            color: rgba(255, 255, 255, 0.65);
+            font-family: 'Inter', sans-serif;
+            font-size: 20px;
+            font-weight: 500;
+        }
+
+        .hashtag-bar {
+            color: #7dd3fc;
+            font-family: 'Inter', sans-serif;
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="card">
+        <div class="overlay"></div>
+        <div class="accent-glow"></div>
+
+        <div class="top-bar">
+            <div class="category-badge">{CATEGORY_BADGE}</div>
+            <div class="brand">
+                <img src="{BRAND_LOGO_URL}" alt="brand logo">
+            </div>
+        </div>
+
+        <div class="spacer"></div>
+
+        <div class="content-box">
+            <div class="headline">{HEADLINE_TITLE}</div>
+            <div class="description">{BODY_DESCRIPTION}</div>
+        </div>
+
+        <div class="footer-bar">
+            <div class="footer-left">
+                <span class="source-text">{SOURCE_TEXT}</span>
+                <span class="dot-sep"></span>
+                <span class="date-text">{DATE_TEXT}</span>
+            </div>
+            <div class="hashtag-bar">#NCN</div>
+        </div>
+    </div>
+
+</body>
+
+</html>

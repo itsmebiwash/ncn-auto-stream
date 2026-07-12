@@ -3,10 +3,11 @@ import requests
 from io import BytesIO
 from PIL import Image
 
-def optimize_image(image_url_or_path, output_path, max_size_kb=500, target_size=(1200, 630)):
+def optimize_image(image_url_or_path, output_path, max_size_kb=500, target_size=(1200, 630), check_dimensions=False):
     """
     Downloads/loads an image, resizes it to target_size if provided,
     and compresses it to be under max_size_kb.
+    If check_dimensions=True, rejects images that look like logos/banners.
     Saves the final image as JPEG.
     """
     try:
@@ -16,6 +17,15 @@ def optimize_image(image_url_or_path, output_path, max_size_kb=500, target_size=
             img = Image.open(BytesIO(response.content))
         else:
             img = Image.open(image_url_or_path)
+            
+        if check_dimensions:
+            w, h = img.size
+            if w == 0 or h == 0:
+                return False, "Invalid image dimensions"
+            aspect = w / h
+            # Reject if width < 400 or height < 300 or extreme aspect ratio
+            if w < 400 or h < 300 or aspect > 2.5 or aspect < 0.5:
+                return False, f"Image rejected as logo/banner (w:{w}, h:{h}, aspect:{aspect:.2f})"
 
         # Convert to RGB to ensure JPEG compatibility
         if img.mode in ("RGBA", "P"):

@@ -344,9 +344,9 @@ def scrape_and_score_all() -> int:
 # ═════════════════════════════════════════════════════════════════════════════
 # PHASE 2 – Render images for TOP-N articles only
 # ═════════════════════════════════════════════════════════════════════════════
-def _render_single_article(article: dict) -> bool:
+def _render_single_article(article, index=1):
     """
-    Downloads/validates image and renders an HTML card for ONE article.
+    Downloads image, renders HTML card, updates DB.
     Updates DB status to 'queued' on success, 'failed' on failure.
     Returns True on success.
     """
@@ -386,10 +386,22 @@ def _render_single_article(article: dict) -> bool:
     slug     = article.get('topic_slug', content_hash[:8])
     bg_out   = os.path.join(output_dir, f'{slug}_bg.jpg')
     final_out = os.path.join(output_dir, f'{slug}.jpg')
+    ok, bg_path = False, bg_out
+    if image_url:
+        ok, bg_path = optimize_image(image_url, bg_out, target_size=(1080, 1350), check_dimensions=True)
+        if not ok:
+            print(f'  [{source_name}] ✗ Scraped image rejected/failed. Falling back to Pexels.')
+            use_pexels = True
 
-    ok, bg_path = optimize_image(image_url, bg_out, target_size=(1080, 1350))
+    if use_pexels:
+        keywords = article.get('pexels_search_keywords', [])
+        fallback = fetch_pexels_image(keywords, PEXELS_API_KEY)
+        if fallback:
+            ok, bg_path = optimize_image(fallback, bg_out, target_size=(1080, 1350), check_dimensions=False)
+            image_url = fallback
+
     if not ok:
-        print(f'  [{source_name}] ✗ Image download failed.')
+        print(f'  [{source_name}] ✗ Image download failed (both scraped and Pexels).')
         db.articles.update_one({'content_hash': content_hash},
                                {'$set': {'status': 'failed',
                                          'updated_at': datetime.now(timezone.utc)}})
@@ -398,7 +410,7 @@ def _render_single_article(article: dict) -> bool:
     # Step 3: Render HTML card (1080x1350)
     head = article.get('english_headline', '')
     sub  = article.get('english_caption', '')
-    rend_ok, rend_path = render_html_card(bg_path, category, head, sub, final_out)
+    rend_ok, rend_path = render_html_card(bg_path, category, head, sub, final_out, index=index)
 
     if not rend_ok:
         print(f'  [{source_name}] ✗ Card render failed.')
@@ -457,7 +469,7 @@ def render_images_for_top_n(n: int = TOP_N_TO_RENDER) -> int:
     success_count = 0
     for i, art in enumerate(top_articles, 1):
         print(f'  [{i}/{len(top_articles)}] {art.get("original_title", "")[:65]}')
-        if _render_single_article(art):
+        if _render_single_article(art, index=i):
             success_count += 1
 
     print(f'[Phase 2] Done. {success_count}/{len(top_articles)} articles queued.')

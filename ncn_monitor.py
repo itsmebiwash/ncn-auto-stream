@@ -53,14 +53,11 @@ def start_scrapper():
     if is_scrapper_running():
         return False
     try:
-        # Start python run_pipeline.py in background without creating a visible window
-        CREATE_NO_WINDOW = 0x08000000
+        # Start python run_pipeline.py in a new visible window
         subprocess.Popen(
             [sys.executable, "run_pipeline.py"], 
             cwd=SCRIPT_DIR,
-            creationflags=CREATE_NO_WINDOW,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            creationflags=subprocess.CREATE_NEW_CONSOLE
         )
         return True
     except Exception as e:
