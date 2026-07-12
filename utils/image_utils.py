@@ -19,13 +19,20 @@ def optimize_image(image_url_or_path, output_path, max_size_kb=500, target_size=
             img = Image.open(image_url_or_path)
             
         if check_dimensions:
+            # 1. Check URL for ad/logo/banner keywords
+            bad_keywords = ['logo', 'banner', 'ad', 'sponsor', 'promo', 'sidebar', 'footer', 'header', 'icon', 'avatar', 'ads', 'advertise']
+            url_lower = image_url_or_path.lower()
+            if any(word in url_lower for word in bad_keywords):
+                return False, f"Image URL contains blocked keyword"
+
+            # 2. Check dimensions
             w, h = img.size
             if w == 0 or h == 0:
                 return False, "Invalid image dimensions"
             aspect = w / h
-            # Reject if width < 400 or height < 300 or extreme aspect ratio
-            if w < 400 or h < 300 or aspect > 2.5 or aspect < 0.5:
-                return False, f"Image rejected as logo/banner (w:{w}, h:{h}, aspect:{aspect:.2f})"
+            # Reject if width < 500 or height < 400 or extreme aspect ratio
+            if w < 500 or h < 400 or aspect > 2.2 or aspect < 0.6:
+                return False, f"Image rejected as logo/banner/poster (w:{w}, h:{h}, aspect:{aspect:.2f})"
 
         # Convert to RGB to ensure JPEG compatibility
         if img.mode in ("RGBA", "P"):

@@ -158,22 +158,24 @@ def process_article_slot(article, slot_index, total, db):
 
     print(f'  [T+0s] ✓ Image card published. fb_post_id={fb_id_or_err}')
 
-    # ── Step 2: Wait 15s then post reel ────────────────────────
-    reel_wait = max(0, REEL_POST_DELAY - (time.time() - slot_start))
-    if reel_wait > 0:
-        print(f'  [Waiting {reel_wait:.0f}s before reel...]')
-        time.sleep(reel_wait)
-
-    print(f'  [T+{int(time.time()-slot_start)}s] Posting pre-rendered reel to Facebook Reels...')
-    reel_path, reel_id = _post_pre_rendered_reel(article)
+    # ── Step 2: Wait 15s then post reel (DISABLED) ─────────────
+    # reel_wait = max(0, REEL_POST_DELAY - (time.time() - slot_start))
+    # if reel_wait > 0:
+    #     print(f'  [Waiting {reel_wait:.0f}s before reel...]')
+    #     time.sleep(reel_wait)
+    #
+    # print(f'  [T+{int(time.time()-slot_start)}s] Posting pre-rendered reel to Facebook Reels...')
+    # reel_path, reel_id = _post_pre_rendered_reel(article)
+    reel_path = reel_id = None
+    print('  [Reel] Generation and posting temporarily disabled.')
 
     # ── Step 3: Mark posted, delete local files immediately ────
     _mark_posted(db, article, fb_id_or_err, reel_id)
 
-    # Instant cleanup — delete image card and reel the moment they are posted
+    # Instant cleanup — delete image card the moment they are posted
     image_path = article.get('final_image_path')
     _delete(image_path)
-    _delete(reel_path)
+    # _delete(reel_path)
 
     # Clear the local path from DB so we don't accidentally retry a deleted file
     db.articles.update_one(
@@ -181,7 +183,7 @@ def process_article_slot(article, slot_index, total, db):
         {'$unset': {'final_image_path': ''}}
     )
 
-    print('  [✓] Article fully processed (Image + Reel).')
+    print('  [✓] Article fully processed (Image only).')
 
     # ── Step 4: Sleep for remainder of 240s slot ────────────────
     elapsed    = time.time() - slot_start
@@ -233,7 +235,7 @@ def run_batch_schedule():
         print('[Phase 3] No articles ready. Exiting.')
         return
         
-    pre_render_reels(top_articles)
+    # pre_render_reels(top_articles)  # DISABLED FOR NOW
 
     db = get_db()
     posted_count = 0
@@ -294,7 +296,7 @@ def run_continuous_mode():
                 time.sleep(60)
             continue
             
-        pre_render_reels(top_articles)
+        # pre_render_reels(top_articles)  # DISABLED FOR NOW
 
         print(f'[Queue] {len(top_articles)} articles ready. '
               f'Starting 4-min slot schedule...\n')
