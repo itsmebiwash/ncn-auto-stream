@@ -14,7 +14,6 @@ EXAMPLE:
   11:18 AM  Posting cycle ends, new images already waiting
 """
 import argparse
-import shutil
 import os
 import sys
 import time
@@ -45,13 +44,16 @@ BUFFER_SECONDS  = 300    # 5 min buffer before next scrape
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-def _move(src, dest_dir):
+def _delete(path: str) -> None:
+    """Instantly delete a local file after it has been posted. Zero storage waste."""
+    if not path:
+        return
     try:
-        if src and os.path.exists(src):
-            os.makedirs(dest_dir, exist_ok=True)
-            shutil.move(src, os.path.join(dest_dir, os.path.basename(src)))
+        if os.path.exists(path):
+            os.remove(path)
+            print(f'  [Cleanup] Deleted: {os.path.basename(path)}')
     except Exception as e:
-        print(f'  [Move Warning] {e}')
+        print(f'  [Cleanup Warning] Could not delete {path}: {e}')
 
 
 def _mark_posted(db, article, fb_post_id, reel_id=None):
@@ -156,11 +158,19 @@ def process_article_slot(article, slot_index, total, db):
     print(f'  [T+{int(time.time()-slot_start)}s] Posting reel to Facebook Reels...')
     reel_path, reel_id = _generate_and_post_reel(article)
 
-    # ── Step 3: Mark posted, move files ────────────────────────
+    # ── Step 3: Mark posted, delete local files immediately ────
     _mark_posted(db, article, fb_id_or_err, reel_id)
-    _move(article.get('final_image_path'), os.path.join('output', 'posted'))
-    if reel_path:
-        _move(reel_path, os.path.join('output', 'posted_reels'))
+
+    # Instant cleanup — delete image card and reel the moment they are posted
+    image_path = article.get('final_image_path')
+    _delete(image_path)
+    _delete(reel_path)
+
+    # Clear the local path from DB so we don't accidentally retry a deleted file
+    db.articles.update_one(
+        {'_id': article['_id']},
+        {'$unset': {'final_image_path': ''}}
+    )
 
     print('  [✓] Article fully processed (Image + Reel).')
 
