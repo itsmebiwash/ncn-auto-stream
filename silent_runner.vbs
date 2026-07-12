@@ -1,9 +1,7 @@
 Set WshShell = CreateObject("WScript.Shell")
-' Get the directory of this script
-strPath = Wscript.ScriptFullName
-Set objFSO = CreateObject("Scripting.FileSystemObject")
-strFolder = objFSO.GetParentFolderName(strPath)
 
-' Run the bat file hidden (0)
-WshShell.Run chr(34) & strFolder & "\run_sync.bat" & Chr(34), 0
-Set WshShell = Nothing
+' Start the background worker (Queue Manager & Facebook Publisher)
+WshShell.Run "python run_worker.py", 0, False
+
+' Start the background scraper
+WshShell.Run "python run_scraper.py", 0, False

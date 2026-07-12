@@ -1,0 +1,14 @@
+{
+  "sources": [
+    {
+      "name": "OnlineKhabar",
+      "url": "https://www.onlinekhabar.com",
+      "article_selector": ".title__regular a, .title__large a"
+    },
+    {
+      "name": "Setopati",
+      "url": "https://www.setopati.com",
+      "article_selector": ".news-box a"
+    }
+  ]
+}

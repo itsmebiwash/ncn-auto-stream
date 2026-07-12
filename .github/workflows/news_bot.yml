@@ -46,17 +46,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Run NCN Universal Sync Wrapper
+      - name: Run Scraper & Queue Worker
         env:
           GITHUB_ACTIONS:       "true"
-          GEMINI_API_KEY:       ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_API_KEYS:      ${{ secrets.GEMINI_API_KEYS }}
-          GROQ_API_KEY:         ${{ secrets.GROQ_API_KEY }}
-          GROQ_API_KEYS:        ${{ secrets.GROQ_API_KEYS }}
-          OPENROUTER_API_KEY:   ${{ secrets.OPENROUTER_API_KEY }}
+          GEMINI_KEYS:          ${{ secrets.GEMINI_KEYS }}
+          GROQ_KEYS:            ${{ secrets.GROQ_KEYS }}
           FB_PAGE_ID:           ${{ secrets.FB_PAGE_ID }}
-          FB_PAGE_ACCESS_TOKEN: ${{ secrets.FB_PAGE_ACCESS_TOKEN }}
+          FB_ACCESS_TOKEN:      ${{ secrets.FB_PAGE_ACCESS_TOKEN }}
           PEXELS_API_KEY:       ${{ secrets.PEXELS_API_KEY }}
-          FOOTBALL_API_KEY:     ${{ secrets.FOOTBALL_API_KEY }}
+          MONGO_URL:            ${{ secrets.MONGO_URL }}
         run: |
-          python run_sync.py
+          python run_scraper.py
+          python run_worker.py

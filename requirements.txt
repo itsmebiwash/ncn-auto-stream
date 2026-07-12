@@ -1,0 +1,7 @@
+requests
+beautifulsoup4
+groq
+google-generativeai
+Pillow
+python-dotenv
+pymongo
