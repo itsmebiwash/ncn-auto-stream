@@ -3,8 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-GROQ_KEYS = [k.strip() for k in os.getenv("GROQ_KEYS", "").split(",") if k.strip()]
-GEMINI_KEYS = [k.strip() for k in os.getenv("GEMINI_KEYS", "").split(",") if k.strip()]
+GROQ_API_KEYS = [k.strip() for k in os.getenv("GROQ_API_KEYS", os.getenv("GROQ_KEYS", "")).split(",") if k.strip()]
 
 PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
 

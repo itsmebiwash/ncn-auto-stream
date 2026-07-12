@@ -11,7 +11,7 @@ import subprocess
 import sys
 import time
 from datetime import datetime, timedelta, timezone
-from db.database import get_db
+from database.db_client import get_db
 
 # ──────────────────────────────────────────────
 SCRIPT_DIR     = os.path.dirname(os.path.abspath(__file__))
@@ -44,7 +44,7 @@ def is_scrapper_running():
             ["powershell", "-NoProfile", "-Command", cmd],
             stderr=subprocess.DEVNULL, timeout=8
         ).decode("utf-8", "ignore")
-        return "run_scraper.py" in out.lower() or "run_worker.py" in out.lower()
+        return "run_pipeline.py" in out.lower()
     except Exception:
         return False
 
@@ -53,17 +53,24 @@ def start_scrapper():
     if is_scrapper_running():
         return False
     try:
-        # Run silent runner VBS script to start scraper & worker in background
-        subprocess.Popen(["wscript.exe", "silent_runner.vbs"], cwd=SCRIPT_DIR)
+        # Start python run_pipeline.py in background without creating a visible window
+        CREATE_NO_WINDOW = 0x08000000
+        subprocess.Popen(
+            [sys.executable, "run_pipeline.py"], 
+            cwd=SCRIPT_DIR,
+            creationflags=CREATE_NO_WINDOW,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
         return True
-    except Exception:
+    except Exception as e:
+        print(f"Failed to start: {e}")
         return False
 
 
 def stop_scrapper():
     try:
-        # Selectively kill python processes running our scripts to avoid killing the GUI
-        cmd = 'Get-WmiObject Win32_Process -Filter "name=\'python.exe\'" | ForEach-Object { if ($_.CommandLine -like "*run_scraper*" -or $_.CommandLine -like "*run_worker*") { Stop-Process $_.ProcessId -Force } }'
+        cmd = 'Get-WmiObject Win32_Process -Filter "name=\'python.exe\'" | ForEach-Object { if ($_.CommandLine -like "*run_pipeline.py*") { Stop-Process $_.ProcessId -Force } }'
         subprocess.run(["powershell", "-NoProfile", "-Command", cmd], capture_output=True, text=True, check=False)
         return True
     except Exception:

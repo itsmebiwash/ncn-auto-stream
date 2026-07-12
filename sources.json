@@ -3,12 +3,12 @@
     {
       "name": "OnlineKhabar",
       "url": "https://www.onlinekhabar.com",
-      "article_selector": ".title__regular a, .title__large a"
+      "article_selector": ".ok-news-post a, .ok-post-content-wrap a"
     },
     {
       "name": "Setopati",
       "url": "https://www.setopati.com",
-      "article_selector": ".news-box a"
+      "article_selector": ".breaking-news-item a, .items a"
     }
   ]
 }

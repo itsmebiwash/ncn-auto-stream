@@ -5,7 +5,7 @@ from PIL import Image
 
 def optimize_image(image_url_or_path, output_path, max_size_kb=500, target_size=(1200, 630)):
     """
-    Downloads/loads an image, resizes it to target_size (Meta recommended),
+    Downloads/loads an image, resizes it to target_size if provided,
     and compresses it to be under max_size_kb.
     Saves the final image as JPEG.
     """
@@ -21,8 +21,10 @@ def optimize_image(image_url_or_path, output_path, max_size_kb=500, target_size=
         if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")
             
-        # Resize using LANCZOS for high quality
-        img = img.resize(target_size, Image.Resampling.LANCZOS)
+        # Resize if target_size is given
+        if target_size:
+            # Resize using LANCZOS for high quality
+            img = img.resize(target_size, Image.Resampling.LANCZOS)
         
         quality = 95
         step = 5

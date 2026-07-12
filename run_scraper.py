@@ -1,10 +1,16 @@
 import time
 import os
 import sys
-from db.database import init_db
-from scrapers.scraper_engine import run_scraper_cycle
+from database.db_client import init_db
+from scrapers.nepali_scraper import run_scraper_cycle
 from config.settings import SCRAPER_INTERVAL_HOURS
 from utils.heartbeat import record_laptop_heartbeat, is_laptop_active
+
+if sys.stdout.encoding.lower() != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 
 if __name__ == "__main__":
     print("Initializing Database...")

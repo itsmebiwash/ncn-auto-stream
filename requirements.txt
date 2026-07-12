@@ -1,7 +1,9 @@
 requests
 beautifulsoup4
 groq
-google-generativeai
+html2image
 Pillow
 python-dotenv
 pymongo
+moviepy<2.0.0
+numpy

@@ -24,8 +24,13 @@ def post_to_facebook(article_dict):
         
     url = f"https://graph.facebook.com/v21.0/{FB_PAGE_ID}/photos"
     
-    caption = f"{article_dict['english_headline']}\n\n{article_dict['english_description']}"
+    hashtags_list = article_dict.get('hashtags', [])
+    hashtags_str = " ".join(hashtags_list) if isinstance(hashtags_list, list) else str(hashtags_list)
     
+    caption_text = article_dict.get('english_description', '')
+    source_attr = f"\nSource: {article_dict.get('source_name', 'Nepali News')}"
+    
+    caption = f"{caption_text}\n\n{hashtags_str}{source_attr}"
     payload = {
         'access_token': FB_ACCESS_TOKEN,
         'message': caption,

@@ -1,6 +1,6 @@
 import time
 from datetime import datetime, timedelta, timezone
-from db.database import get_db
+from database.db_client import get_db
 
 def run_analytics_cycle():
     """

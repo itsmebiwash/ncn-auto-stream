@@ -41,7 +41,6 @@ class KeyPool:
                 self.current_index = (self.current_index + 1) % len(self.keys)
                 break
 
-from .settings import GROQ_KEYS, GEMINI_KEYS
+from .settings import GROQ_API_KEYS
 
-groq_pool = KeyPool("Groq", GROQ_KEYS)
-gemini_pool = KeyPool("Gemini", GEMINI_KEYS)
+groq_pool = KeyPool("Groq", GROQ_API_KEYS)

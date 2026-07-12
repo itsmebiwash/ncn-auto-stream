@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timezone, timedelta
-from db.database import get_db
+from database.db_client import get_db
 
 def record_laptop_heartbeat():
     """Records the active laptop status to MongoDB telemetry collection."""
