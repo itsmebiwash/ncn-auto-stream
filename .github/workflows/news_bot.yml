@@ -49,8 +49,8 @@ jobs:
       - name: Run Scraper & Queue Worker
         env:
           GITHUB_ACTIONS:       "true"
-          GEMINI_KEYS:          ${{ secrets.GEMINI_KEYS }}
-          GROQ_KEYS:            ${{ secrets.GROQ_KEYS }}
+          GEMINI_KEYS:          ${{ secrets.GEMINI_API_KEYS }}
+          GROQ_KEYS:            ${{ secrets.GROQ_API_KEYS }}
           FB_PAGE_ID:           ${{ secrets.FB_PAGE_ID }}
           FB_ACCESS_TOKEN:      ${{ secrets.FB_PAGE_ACCESS_TOKEN }}
           PEXELS_API_KEY:       ${{ secrets.PEXELS_API_KEY }}
