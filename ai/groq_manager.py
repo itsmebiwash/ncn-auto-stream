@@ -29,12 +29,18 @@ Strict Formatting Requirements:
 2. {lang_rule}
 3. `card_headline_nepali`: 4 to 7 words MAX. Short, punchy, realistic news headline.
 4. `card_subtitle_nepali`: 12 to 20 words. Expand on the headline to add crucial context without revealing the entire story.
-5. `fb_caption_text`: Write a comprehensive, strictly factual news report covering Who, What, When, Where, Why, and How. Zero opinion or conversational filler. Do NOT repeat sentences. Do NOT include source URLs.
+5. `fb_caption_text`: Write a comprehensive, strictly factual news report covering Who, What, When, Where, Why, and How.
+   - Do NOT repeat any sentence.
+   - Do NOT include ANY source link, URL, or placeholder text like "[स्रोतको नाम]", "[source name]", "[Source]" etc.
+   - The source attribution is added automatically by the system AFTER your response.
 6. `priority_score`: Float between 1.0 and 10.0 based on:
    - Scope & Impact 40% (policy, national security, public safety)
    - Urgency & Freshness 30% (breaking, within last 2 hours)
    - Virality 30% (traffic rules, accidents, sports, tax changes)
-7. `hashtags`: Array of 5 to 7 ENGLISH-character hashtags ONLY (e.g. ["#NepalNews", "#Kathmandu"]). NEVER use Devanagari in hashtags.
+7. `hashtags`: CRITICAL - Must ONLY be English/ASCII characters. NEVER use Devanagari/Nepali script in hashtags.
+   - CORRECT: ["#NepalNews", "#Kathmandu", "#Breaking", "#NepalCentralNews", "#NCN"]
+   - WRONG: ["#नेपाल", "#काठमाडौं"] — These will be DISCARDED.
+   - Always include #NepalCentralNews and #NCN.
 8. `pexels_search_keywords`: Array of 2-3 SPECIFIC visual search phrases (NOT "news", "paper", "typewriter").
 
 Respond ONLY with this exact JSON structure:
@@ -43,10 +49,11 @@ Respond ONLY with this exact JSON structure:
   "priority_score": 7.5,
   "card_headline_nepali": "string (4-7 words)",
   "card_subtitle_nepali": "string (12-20 words)",
-  "fb_caption_text": "string (factual 5W+1H report, no URLs)",
+  "fb_caption_text": "string (factual 5W+1H, no repeated sentences, NO source placeholder)",
   "hashtags": ["#NepalCentralNews", "#Nepal", "#BreakingNews", "#Kathmandu", "#NCN"],
   "pexels_search_keywords": ["keyword 1", "keyword 2"]
 }}'''
+
 
     user_prompt = f"Category: {category}\nTitle: {title}\nBody: {content}"
 

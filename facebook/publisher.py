@@ -1,7 +1,56 @@
+import re
 import requests
 import json
 import time
 from config.settings import FB_PAGE_ID, FB_ACCESS_TOKEN
+
+
+def _sanitise_caption(text: str) -> str:
+    """Strip repeated sentences and [placeholder] source refs from AI captions."""
+    if not text:
+        return text
+    # Remove common source placeholders the AI generates
+    for pat in [
+        r'\[स्रोतको नाम\]', r'\[source name\]', r'\[स्रोत\]',
+        r'\[Source\]', r'\[source\]', r'\[URL\]', r'\[link\]',
+        r'स्रोत:\s*\[.*?\]', r'Source:\s*\[.*?\]',
+    ]:
+        text = re.sub(pat, '', text, flags=re.IGNORECASE)
+
+    # Deduplicate sentences
+    seen = set()
+    deduped = []
+    for seg in re.split(r'([।\.\n]+)', text):
+        stripped = seg.strip()
+        if not stripped:
+            deduped.append(seg)
+            continue
+        key = re.sub(r'\s+', ' ', stripped.lower())
+        if key not in seen:
+            seen.add(key)
+            deduped.append(seg)
+
+    result = ''.join(deduped).strip()
+    return re.sub(r'\n{3,}', '\n\n', result)
+
+
+def _sanitise_hashtags(hashtags) -> str:
+    """Return space-joined ASCII-only hashtags. Silently drop Devanagari tags."""
+    if isinstance(hashtags, str):
+        tags = hashtags.split()
+    else:
+        tags = list(hashtags)
+    clean = []
+    for tag in tags:
+        tag = tag.strip()
+        if not tag.startswith('#'):
+            tag = '#' + tag
+        if all(ord(c) < 128 for c in tag):   # ASCII only
+            clean.append(tag)
+    if not clean:
+        clean = ['#NepalCentralNews', '#Nepal', '#NCN']
+    return ' '.join(clean)
+
 
 
 def parse_usage_header(header_value):
@@ -19,20 +68,21 @@ def build_facebook_caption(fb_caption_text, hashtags_list, source_name, category
     """
     Constructs the full Facebook post caption.
     Format:
-        <factual 5W+1H body>
+        <factual 5W+1H body — deduplicated, placeholders stripped>
 
         स्रोत / Source: <source_name>
 
         #Hashtag1 #Hashtag2 ...
     """
-    hashtag_str = " ".join(hashtags_list) if isinstance(hashtags_list, list) else str(hashtags_list)
+    body       = _sanitise_caption(fb_caption_text)
+    hashtag_str = _sanitise_hashtags(hashtags_list)
 
     if category.lower() == "international":
         source_label = f"Source: {source_name}"
     else:
         source_label = f"स्रोत: {source_name}"
 
-    return f"{fb_caption_text}\n\n{source_label}\n\n{hashtag_str}"
+    return f"{body}\n\n{source_label}\n\n{hashtag_str}"
 
 
 def post_to_facebook(article_dict):
