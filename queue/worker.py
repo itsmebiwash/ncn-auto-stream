@@ -5,6 +5,8 @@ from db.database import get_db
 from config.settings import WORKER_INTERVAL_SECONDS
 from facebook.publisher import post_to_facebook
 from utils.cleanup import run_cleanup
+from utils.heartbeat import record_laptop_heartbeat, is_laptop_active
+import sys
 
 def poll_queue():
     """
@@ -31,11 +33,20 @@ def start_worker():
     print(f"Worker started. Interval: {WORKER_INTERVAL_SECONDS} seconds.")
     db = get_db()
     
+    # Check if laptop is active when running on GitHub Actions
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        print("Checking if local laptop is active...")
+        if is_laptop_active():
+            print("  [OK] Local laptop is active! GitHub skipping worker run.")
+            sys.exit(0)
+            
     import os
     start_time = time.time()
     
     while True:
         try:
+            # Record local laptop heartbeat
+            record_laptop_heartbeat()
             # Run cleanup during idle loop
             run_cleanup()
             
