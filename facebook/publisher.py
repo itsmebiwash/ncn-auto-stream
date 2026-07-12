@@ -6,10 +6,11 @@ from config.settings import FB_PAGE_ID, FB_ACCESS_TOKEN
 
 
 def _sanitise_caption(text: str) -> str:
-    """Strip repeated sentences and [placeholder] source refs from AI captions."""
+    """Strip source placeholders and deduplicate repeated/paraphrased sentences."""
     if not text:
         return text
-    # Remove common source placeholders the AI generates
+
+    # Remove source placeholders
     for pat in [
         r'\[स्रोतको नाम\]', r'\[source name\]', r'\[स्रोत\]',
         r'\[Source\]', r'\[source\]', r'\[URL\]', r'\[link\]',
@@ -17,21 +18,46 @@ def _sanitise_caption(text: str) -> str:
     ]:
         text = re.sub(pat, '', text, flags=re.IGNORECASE)
 
-    # Deduplicate sentences
-    seen = set()
-    deduped = []
-    for seg in re.split(r'([।\.\n]+)', text):
+    # 2. Split into sentences (handles run-ons)
+    processed_text = text
+    verbs = ['छ', 'छन्', 'थियो', 'थिए', 'भयो', 'भए', 'हो', 'हुन्', 'गरे', 'गरेका', 'गरेकी', 'गरेको']
+    for verb in verbs:
+        processed_text = re.sub(rf'\b{verb}\s+', f'{verb} \u200b', processed_text)
+    segments = re.split(r'([।\.\n\u200b]+)', processed_text)
+
+
+    # 3. Jaccard-based sentence deduplication (catches paraphrased repeats)
+    def _tok(s):
+        return set(w for w in re.sub(r'[^\w\s]', '', s).split() if len(w) > 1)
+
+    def _similar(s, seen_tok_list, threshold=0.35):
+        st = _tok(s)
+        if not st:
+            return False
+        for ot in seen_tok_list:
+            if ot and len(st & ot) / len(st | ot) >= threshold:
+                return True
+        return False
+
+    seen_exact, seen_tok_list, deduped = set(), [], []
+    for seg in segments:
         stripped = seg.strip()
         if not stripped:
             deduped.append(seg)
             continue
         key = re.sub(r'\s+', ' ', stripped.lower())
-        if key not in seen:
-            seen.add(key)
-            deduped.append(seg)
+        if key in seen_exact or _similar(key, seen_tok_list):
+            continue
+        seen_exact.add(key)
+        seen_tok_list.append(_tok(key))
+        deduped.append(seg)
 
     result = ''.join(deduped).strip()
+    result = result.replace('\u200b', '') # remove injected split markers
     return re.sub(r'\n{3,}', '\n\n', result)
+
+
+
 
 
 def _sanitise_hashtags(hashtags) -> str:

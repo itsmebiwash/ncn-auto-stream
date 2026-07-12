@@ -14,48 +14,61 @@ def process_text_with_groq(title, content="", category="General"):
     """
     Analyzes a news title+body using Groq llama-3.1-8b-instant.
     Returns parsed JSON or None on failure.
+    category = source-level hint (General, Business, etc.) — may be overridden
+    by the AI-detected article_category in the response.
     """
-    # Language instruction based on source category
-    if category.lower() == "international":
-        lang_rule = "Write card_headline_nepali, card_subtitle_nepali, and fb_caption_text ENTIRELY in English."
-    else:
-        lang_rule = "Write card_headline_nepali, card_subtitle_nepali, and fb_caption_text ENTIRELY in Nepali (Devanagari script)."
-
-    system_prompt = f'''You are an objective, facts-only news editor and social media viral strategist.
+    system_prompt = '''You are an objective, facts-only news editor and social media viral strategist.
 Analyze the provided Nepali news article.
 
 Strict Formatting Requirements:
 1. Identify if this is a real news story or an advertisement, sponsored post, or non-news notice.
-2. {lang_rule}
-3. `card_headline_nepali`: 4 to 7 words MAX. Short, punchy, realistic news headline.
-4. `card_subtitle_nepali`: 12 to 20 words. Expand on the headline to add crucial context without revealing the entire story.
-5. `fb_caption_text`: Write a comprehensive, strictly factual news report covering Who, What, When, Where, Why, and How.
-   - Do NOT repeat any sentence.
-   - Do NOT include ANY source link, URL, or placeholder text like "[स्रोतको नाम]", "[source name]", "[Source]" etc.
-   - The source attribution is added automatically by the system AFTER your response.
-6. `priority_score`: Float between 1.0 and 10.0 based on:
-   - Scope & Impact 40% (policy, national security, public safety)
-   - Urgency & Freshness 30% (breaking, within last 2 hours)
-   - Virality 30% (traffic rules, accidents, sports, tax changes)
-7. `hashtags`: CRITICAL - Must ONLY be English/ASCII characters. NEVER use Devanagari/Nepali script in hashtags.
-   - CORRECT: ["#NepalNews", "#Kathmandu", "#Breaking", "#NepalCentralNews", "#NCN"]
-   - WRONG: ["#नेपाल", "#काठमाडौं"] — These will be DISCARDED.
-   - Always include #NepalCentralNews and #NCN.
-8. `pexels_search_keywords`: Array of 2-3 SPECIFIC visual search phrases (NOT "news", "paper", "typewriter").
 
-Respond ONLY with this exact JSON structure:
-{{
+2. `article_category`: Classify the article into EXACTLY ONE of these categories based on its CONTENT
+   (ignore the source website — a politics article from a business site is still Politics):
+   Politics | Crime | Business | Sports | Health | Technology | Education |
+   Entertainment | International | Environment | Science | Lifestyle | Weather | Opinion | General
+
+3. Language rule:
+   - If article_category is "International": write card_headline_nepali, card_subtitle_nepali,
+     and fb_caption_text ENTIRELY in English.
+   - For all other categories: write ALL three ENTIRELY in Nepali (Devanagari script).
+
+4. `card_headline_nepali`: 4 to 7 words MAX. Short, punchy, realistic news headline.
+
+5. `card_subtitle_nepali`: 12 to 20 words. Add context without revealing all details.
+
+6. `fb_caption_text`: Strictly factual report covering Who, What, When, Where, Why, How.
+   CRITICAL RULES for fb_caption_text:
+   - Write EACH sentence ONCE. NEVER repeat the same idea in different words.
+   - Maximum 4 sentences total.
+   - Do NOT include ANY source link, URL, or placeholder like "[स्रोतको नाम]" or "[Source]".
+   - The source is appended automatically — do not write it yourself.
+
+7. `priority_score`: Float 1.0 to 10.0:
+   - Scope & Impact 40% (policy, national security, public safety, deaths)
+   - Urgency 30% (breaking news, within last 2 hours)
+   - Virality 30% (accidents, protests, sports wins, major crime)
+
+8. `hashtags`: ONLY English/ASCII. NEVER Devanagari. Always include #NepalCentralNews and #NCN.
+   CORRECT: ["#NepalNews", "#Kathmandu", "#NepalCentralNews", "#NCN"]
+   WRONG:   ["#नेपाल", "#काठमाडौं"]  ← DISCARDED automatically.
+
+9. `pexels_search_keywords`: 2-3 SPECIFIC visual phrases. NOT "news", "paper", "typewriter".
+
+Respond ONLY with this exact JSON:
+{
   "is_advertisement_or_promo": false,
+  "article_category": "Politics",
   "priority_score": 7.5,
   "card_headline_nepali": "string (4-7 words)",
   "card_subtitle_nepali": "string (12-20 words)",
-  "fb_caption_text": "string (factual 5W+1H, no repeated sentences, NO source placeholder)",
+  "fb_caption_text": "string (max 4 sentences, no repeats, no source placeholder)",
   "hashtags": ["#NepalCentralNews", "#Nepal", "#BreakingNews", "#Kathmandu", "#NCN"],
   "pexels_search_keywords": ["keyword 1", "keyword 2"]
-}}'''
+}'''
 
+    user_prompt = f"Source category hint: {category}\nTitle: {title}\nBody: {content}"
 
-    user_prompt = f"Category: {category}\nTitle: {title}\nBody: {content}"
 
     max_attempts = 5
     for attempt in range(max_attempts):

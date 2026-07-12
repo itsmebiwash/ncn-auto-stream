@@ -1,51 +1,100 @@
 import os
 import base64
-from html2image import Html2Image
+from datetime import datetime
 
-def render_html_card(image_path, category, headline, subtitle, output_path):
+# Map category names that don't have their own template to the closest match
+_CATEGORY_TEMPLATE_MAP = {
+    # Direct matches (template file exists)
+    'politics':       'Politics.html',
+    'crime':          'Politics.html',   # Crime → Politics template (closest)
+    'business':       'Business.html',
+    'sports':         'Sports.html',
+    'health':         'Health.html',
+    'technology':     'Technology.html',
+    'education':      'Education.html',
+    'entertainment':  'Entertainment.html',
+    'international':  'International.html',
+    'environment':    'Enviroment.html',  # Note: typo in actual filename
+    'science':        'Science.html',
+    'lifestyle':      'lifestyle.html',
+    'weather':        'Weather.html',
+    'opinion':        'Opinion.html',
+    'local':          'Local.html',
+    'general':        'news_template.html',
+}
+
+_FALLBACK_TEMPLATE = 'news_template.html'
+
+
+def _resolve_template(category: str, template_dir: str) -> str:
     """
-    Renders the news card using HTML2Image.
+    Returns the absolute path to the best-matching template file.
+    Falls back to news_template.html if the category template is missing.
+    """
+    cat_key = category.strip().lower()
+    template_file = _CATEGORY_TEMPLATE_MAP.get(cat_key, _FALLBACK_TEMPLATE)
+    template_path = os.path.join(template_dir, template_file)
+
+    if not os.path.exists(template_path):
+        # Last resort fallback
+        template_path = os.path.join(template_dir, _FALLBACK_TEMPLATE)
+
+    return template_path
+
+
+def render_html_card(image_path: str, category: str, headline: str,
+                     subtitle: str, output_path: str):
+    """
+    Renders a 1080×1350 news card using HTML2Image.
+    Selects the correct template based on the AI-detected article category.
+
+    Returns (True, output_path) on success, (False, error_str) on failure.
     """
     try:
-        # Load the template
-        template_path = os.path.join(os.path.dirname(__file__), "..", "templates", "news_template.html")
-        with open(template_path, "r", encoding="utf-8") as f:
+        template_dir = os.path.join(os.path.dirname(__file__), '..', 'templates')
+        template_path = _resolve_template(category, template_dir)
+
+        with open(template_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
 
-        # Convert local image to base64 to avoid Chrome local file restriction
-        with open(image_path, "rb") as img_file:
+        # Embed background image as base64 to avoid Chrome local file restrictions
+        with open(image_path, 'rb') as img_file:
             img_b64 = base64.b64encode(img_file.read()).decode('utf-8')
-        
-        # Detect extension
-        ext = "jpeg" if image_path.lower().endswith("jpg") or image_path.lower().endswith("jpeg") else "png"
-        img_data_uri = f"data:image/{ext};base64,{img_b64}"
+        ext = 'jpeg' if image_path.lower().endswith(('jpg', 'jpeg')) else 'png'
+        img_data_uri = f'data:image/{ext};base64,{img_b64}'
 
-        # Replace placeholders
-        html_content = html_content.replace("{IMAGE_URL}", img_data_uri)
-        html_content = html_content.replace("{CATEGORY_BADGE}", category)
-        html_content = html_content.replace("{HEADLINE_TITLE}", headline)
-        html_content = html_content.replace("{BODY_DESCRIPTION}", subtitle)
-        
-        # Handle the logo path by embedding it as well (optional, but safer)
-        logo_path = os.path.join(os.path.dirname(__file__), "..", "assets", "logo.png")
+        # Embed logo
+        logo_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'logo.png')
+        logo_data_uri = ''
         if os.path.exists(logo_path):
-            with open(logo_path, "rb") as logo_file:
-                logo_b64 = base64.b64encode(logo_file.read()).decode('utf-8')
-                logo_data_uri = f"data:image/png;base64,{logo_b64}"
-                # The template has <img src="../../assets/logo.png" ...>
-                html_content = html_content.replace("../../assets/logo.png", logo_data_uri)
+            with open(logo_path, 'rb') as lf:
+                logo_data_uri = f'data:image/png;base64,{base64.b64encode(lf.read()).decode("utf-8")}'
 
-        # Render using HTML2Image
+        # Replace all known placeholder variants
+        replacements = {
+            '{IMAGE_URL}':        img_data_uri,
+            '{CATEGORY_BADGE}':   category,
+            '{HEADLINE_TITLE}':   headline,
+            '{BODY_DESCRIPTION}': subtitle,
+            '{BRAND_LOGO_URL}':   logo_data_uri,
+            '{SOURCE_TEXT}':      '',
+            '{DATE_TEXT}':        datetime.now().strftime('%B %d, %Y'),
+            '../../assets/logo.png': logo_data_uri,
+            '{{ SOURCE_TEXT }}':  '',
+        }
+        for placeholder, value in replacements.items():
+            html_content = html_content.replace(placeholder, value)
+
+        # Render with html2image
+        from html2image import Html2Image
         hti = Html2Image(size=(1080, 1350))
-        
-        # html2image saves to the current working directory by default, so we extract filename and move it
-        output_dir = os.path.dirname(output_path)
+        output_dir      = os.path.dirname(os.path.abspath(output_path))
         output_filename = os.path.basename(output_path)
-        
         hti.output_path = output_dir
         hti.screenshot(html_str=html_content, save_as=output_filename)
-        
+
         return True, output_path
+
     except Exception as e:
-        print(f"[HTML2Image Render Error] {e}")
+        print(f'[HTML2Image Render Error] {e}')
         return False, str(e)

@@ -46,25 +46,73 @@ _SOURCE_PLACEHOLDER_PATTERNS = [
     r'स्रोत:\s*\[.*?\]', r'Source:\s*\[.*?\]',
 ]
 
+# Valid template categories (must match templates/*.html filenames)
+_VALID_CATEGORIES = {
+    'politics', 'crime', 'business', 'sports', 'health', 'technology',
+    'education', 'entertainment', 'international', 'environment',
+    'science', 'lifestyle', 'weather', 'opinion', 'general'
+}
+
 def _clean_caption(text: str) -> str:
-    """Strip source placeholders and deduplicate repeated sentences."""
+    """Strip source placeholders and deduplicate repeated / paraphrased sentences."""
     if not text:
         return text
+
+    # 1. Remove source placeholders
     for pat in _SOURCE_PLACEHOLDER_PATTERNS:
         text = re.sub(pat, '', text, flags=re.IGNORECASE)
-    seen = set()
-    deduped = []
-    for seg in re.split(r'([।\.\n]+)', text):
+
+    # 2. Split into sentences (handles standard punctuation and run-on sentences without punctuation)
+    # First, inject a special delimiter character \u200b after common verbs followed by spaces
+    processed_text = text
+    verbs = ['छ', 'छन्', 'थियो', 'थिए', 'भयो', 'भए', 'हो', 'हुन्', 'गरे', 'गरेका', 'गरेकी', 'गरेको']
+    for verb in verbs:
+        # Use regex boundary matching
+        processed_text = re.sub(rf'\b{verb}\s+', f'{verb} \u200b', processed_text)
+
+    # Now split on standard punctuation OR our special separator
+    segments = re.split(r'([।\.\n\u200b]+)', processed_text)
+
+
+    # 3. Deduplicate using both exact match AND Jaccard word-overlap
+    def _tokens(s):
+        # Nepali characters are Unicode, word characters include Devanagari.
+        # Strip common stop-words or suffixes to compare roots.
+        return set(w for w in re.sub(r'[^\w\s]', '', s).split() if len(w) > 1)
+
+    def _is_similar(s, seen_tokens_list, threshold=0.35):
+        st = _tokens(s)
+        if not st:
+            return False
+        for ot in seen_tokens_list:
+            if not ot:
+                continue
+            inter = len(st & ot)
+            union = len(st | ot)
+            if union and inter / union >= threshold:
+                return True
+        return False
+
+    seen_exact  = set()
+    seen_tokens_list = []
+    deduped     = []
+
+    for seg in segments:
         stripped = seg.strip()
         if not stripped:
             deduped.append(seg)
             continue
         key = re.sub(r'\s+', ' ', stripped.lower())
-        if key not in seen:
-            seen.add(key)
-            deduped.append(seg)
+        if key in seen_exact or _is_similar(key, seen_tokens_list):
+            continue   # drop this segment
+        seen_exact.add(key)
+        seen_tokens_list.append(_tokens(key))
+        deduped.append(seg)
+
     result = ''.join(deduped).strip()
+    result = result.replace('\u200b', '') # remove injected split markers
     return re.sub(r'\n{3,}', '\n\n', result)
+
 
 
 def _clean_hashtags(hashtags: list) -> list:
@@ -206,8 +254,17 @@ def _score_single_article(source_name: str, title: str, url: str, category: str,
     priority_score = float(groq_data.get('priority_score',
                                           groq_data.get('virality_score', 1.0)))
 
+    # Use Groq-detected article category — NOT the source category.
+    # e.g. a Crime article from Arthabeed (Business source) → 'Crime'
+    raw_ai_category = groq_data.get('article_category', category).strip()
+    # Validate against known template names; fall back to source category or General
+    if raw_ai_category.lower() in _VALID_CATEGORIES:
+        article_category = raw_ai_category.title()   # e.g. 'politics' → 'Politics'
+    else:
+        article_category = category if category.lower() in _VALID_CATEGORIES else 'General'
+
     head_for_slug = groq_data.get('card_headline_nepali', title)
-    cat_slug  = make_slug(category)
+    cat_slug  = make_slug(article_category)
     head_slug = make_slug(head_for_slug) or content_hash[:8]
     topic_slug = f'{cat_slug}_{head_slug}'
 
@@ -218,6 +275,7 @@ def _score_single_article(source_name: str, title: str, url: str, category: str,
         {'content_hash': content_hash},
         {'$set': {
             'status':               'text_scored',
+            'category':             article_category,   # overwrite with AI-detected category
             'english_headline':     groq_data.get('card_headline_nepali', ''),
             'english_caption':      groq_data.get('card_subtitle_nepali', ''),
             'english_description':  caption_clean,
@@ -228,6 +286,7 @@ def _score_single_article(source_name: str, title: str, url: str, category: str,
             'updated_at':           datetime.now(timezone.utc)
         }}
     )
+
 
 
 def scrape_and_score_all() -> int:
