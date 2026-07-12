@@ -39,7 +39,7 @@ jobs:
 
       - name: Install Python Dependencies
         run: |
-          pip install requests beautifulsoup4 html2image lxml
+          pip install -r requirements.txt
 
       - name: Configure Git
         run: |
@@ -56,5 +56,7 @@ jobs:
           PEXELS_API_KEY:       ${{ secrets.PEXELS_API_KEY }}
           MONGO_URL:            ${{ secrets.MONGO_URL }}
         run: |
-          python run_scraper.py
-          python run_worker.py
+          python run_scraper.py &
+          python run_worker.py &
+          python run_analytics.py
+          wait

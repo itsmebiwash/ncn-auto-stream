@@ -31,6 +31,9 @@ def start_worker():
     print(f"Worker started. Interval: {WORKER_INTERVAL_SECONDS} seconds.")
     db = get_db()
     
+    import os
+    start_time = time.time()
+    
     while True:
         try:
             # Run cleanup during idle loop
@@ -74,8 +77,10 @@ def start_worker():
 
         import os
         if os.environ.get("GITHUB_ACTIONS") == "true":
-            print("Running in GitHub Actions - exiting after one cycle.")
-            break
+            elapsed = time.time() - start_time
+            if elapsed > 1680: # 28 minutes
+                print("Running in GitHub Actions - 28 minutes elapsed. Exiting gracefully.")
+                break
 
         print(f"Sleeping for {WORKER_INTERVAL_SECONDS} seconds...")
         time.sleep(WORKER_INTERVAL_SECONDS)
