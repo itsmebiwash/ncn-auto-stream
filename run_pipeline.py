@@ -147,6 +147,19 @@ def process_article_slot(article, slot_index, total, db):
           f'Source: {article.get("source_name", "?")}')
     print(f'{"="*65}')
 
+    # ── Step 0: Ensure image file actually exists locally ────────
+    image_path = article.get('final_image_path')
+    if not image_path or not os.path.exists(image_path):
+        print(f'  [!] Image missing locally (path: {image_path}). Reverting to text_scored to re-render.')
+        try:
+            db.articles.update_one(
+                {'_id': article['_id']},
+                {'$set': {'status': 'text_scored'}, '$unset': {'final_image_path': ''}}
+            )
+        except Exception:
+            pass
+        return False, 'missing_image'
+
     # ── Step 1: Post image card ─────────────────────────────────
     print('  [T+0s] Posting image card to Facebook Feed...')
     success, fb_id_or_err = post_to_facebook(article)
