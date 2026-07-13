@@ -385,7 +385,8 @@ def _render_single_article(article, index=1):
         return False
 
     # Step 2: Download + resize background
-    output_dir = os.path.abspath('output')
+    # Use scraper file's directory as anchor — works regardless of CWD
+    output_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'output'))
     os.makedirs(output_dir, exist_ok=True)
     slug     = article.get('topic_slug', content_hash[:8])
     bg_out   = os.path.join(output_dir, f'{slug}_bg.jpg')

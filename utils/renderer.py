@@ -68,6 +68,11 @@ def render_html_card(image_path: str, category: str, headline: str,
         hti.output_path = output_dir
         hti.screenshot(html_str=html_content, save_as=output_filename)
 
+        # CRITICAL: html2image can silently fail (Chromium crash/timeout) without
+        # raising an exception. Verify the file was actually written to disk.
+        if not os.path.exists(output_path) or os.path.getsize(output_path) < 1024:
+            return False, f'html2image produced no output at {output_path}'
+
         return True, output_path
 
     except Exception as e:

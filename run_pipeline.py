@@ -302,109 +302,90 @@ def run_batch_schedule():
 # ── Continuous local mode (laptop always-on) ──────────────────────────────────
 def run_continuous_mode():
     """
-    Adaptive continuous loop:
-      - Measures how long Phase 1+2 take
-      - Schedules next scrape so it finishes just before the queue empties
-      - Heartbeat recorded every 60s so GitHub Actions can detect laptop is active
+    Resilient continuous loop:
+      - Smart-skip Phase 1 if 15+ articles already queued
+      - Posts top-15 on 240s slots
+      - Auto-restarts on any unhandled exception (60s cooldown)
+      - Heartbeat recorded every slot so GitHub Actions detects laptop is active
     """
     print('[Continuous] Nepal Central News automation (local mode).')
-    print(f'[Continuous] Cycle: {TOP_N} articles × 4 min = 60 min per cycle.\n')
+    print(f'[Continuous] Cycle: {TOP_N} articles x 4 min = 60 min per cycle.\n')
     init_db()
 
     while True:
-        record_laptop_heartbeat()
-        run_cleanup()
-
-        cycle_start = time.time()
-        print(f'\n[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] '
-              f'Starting scrape+score cycle...')
-
-        # ── Smart skip: if we already have 15+ queued articles, skip Phase 1 ──
-        from database.db_client import get_db as _gdb
-        _db = _gdb()
-        _cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
-        _already_queued = _db.articles.count_documents(
-            {'status': 'queued', 'created_at': {'$gte': _cutoff}})
-        if _already_queued >= 15:
-            print(f'[Phase 1] Skipping scrape — {_already_queued} articles already queued.')
-            t_scrape = 0
-        else:
-            # ── Phase 1: Scrape & score ─────────────────────────────
-            print('[Phase 1] Scraping & scoring all sources (text only)...')
-            scrape_and_score_all()
-
-        # ── Phase 2: Render top-15 images ──────────────────────
-        print('[Phase 2] Rendering images for top 15 articles...')
-        render_images_for_top_n(TOP_N)
-
-        t_scrape = time.time() - cycle_start
-        print(f'[Scraper] Took {t_scrape/60:.1f} min.')
-
-        # ── Phase 3: Post top-15 on 240s slots ─────────────────
-        top_articles = get_top_15_queued()
-        db = get_db()
-
-        if not top_articles:
-            print('[Queue] No articles ready. Will re-scrape in 10 minutes.')
-            for _ in range(10):
-                record_laptop_heartbeat()
-                time.sleep(60)
-            continue
-            
-        # pre_render_reels(top_articles)  # DISABLED FOR NOW
-
-        print(f'[Queue] {len(top_articles)} articles ready. '
-              f'Starting 4-min slot schedule...\n')
-
-        # Adaptive: schedule next scrape so it starts before queue runs dry
-        # Total posting time = len(articles) × 240s
-        # Next scrape should START at: (posting_window − t_scrape − buffer)
-        posting_window = len(top_articles) * SLOT_DURATION
-        next_scrape_in = max(0, posting_window - t_scrape - BUFFER_SECONDS)
-        next_scrape_at = time.time() + next_scrape_in
-        print(f'[Adaptive] Next scrape scheduled in {next_scrape_in/60:.1f} min '
-              f'(T+{next_scrape_in:.0f}s from now).\n')
-
-        for i, article in enumerate(top_articles, 1):
+        try:
             record_laptop_heartbeat()
+            run_cleanup()
 
-            try:
-                db.articles.update_one(
-                    {'_id': article['_id'], 'status': 'queued'},
-                    {'$set': {'status': 'processing',
-                              'updated_at': datetime.now(timezone.utc)}}
-                )
-            except Exception as e:
-                print(f'[DB Error] Failed to update status to processing: {e}')
-                time.sleep(5)
-                continue
-            success, result = process_article_slot(
-                article, i, len(top_articles), db)
+            cycle_start = time.time()
+            print(f'\n[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] '
+                  f'Starting scrape+score cycle...')
 
-            if result == 'rate_limit':
-                print('[!] Rate limit. Pausing remaining items until next cycle.')
-                break
-
-            # ── Trigger next scrape in the background at adaptive time ──
-            if time.time() >= next_scrape_at and i < len(top_articles):
-                print('\n[Adaptive] Background scrape triggered early...')
+            # Smart skip: if 15+ articles queued already, jump straight to posting
+            _db = get_db()
+            _cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+            _already_queued = _db.articles.count_documents(
+                {'status': 'queued', 'created_at': {'$gte': _cutoff}})
+            if _already_queued >= 15:
+                print(f'[Phase 1] Skipping scrape — {_already_queued} articles already queued.')
+            else:
+                print('[Phase 1] Scraping & scoring all sources (text only)...')
                 scrape_and_score_all()
-                render_images_for_top_n(TOP_N)
-                
-                # We do NOT pre_render_reels here because they will be fetched on the next cycle
-                next_scrape_at = float('inf')   # don't trigger again this cycle
 
-        print(f'\n[Cycle complete] Waiting for next scheduled scrape...')
-        # Sleep until it's time for the next full cycle (if adaptive scrape wasn't triggered)
-        sleep_remaining = next_scrape_at - time.time()
-        if sleep_remaining > 3600:
-            # Safety cap: never wait more than 1 hour between cycles
-            print(f'[Safety] next_scrape_at was {sleep_remaining/60:.0f}min away — capping to 60min.')
-            sleep_remaining = 3600
-        while sleep_remaining > 0:
-            record_laptop_heartbeat()
-            time.sleep(min(60, sleep_remaining))
-            sleep_remaining = next_scrape_at - time.time()
+            # Phase 2: Render top-15 images
+            print('[Phase 2] Rendering images for top 15 articles...')
+            render_images_for_top_n(TOP_N)
+            print(f'[Scraper] Took {(time.time()-cycle_start)/60:.1f} min.')
+
+            # Phase 3: Post top-15 on 240s slots
+            top_articles = get_top_15_queued()
+
+            if not top_articles:
+                print('[Queue] No articles ready. Re-scraping in 10 minutes.')
+                for _ in range(10):
+                    record_laptop_heartbeat()
+                    time.sleep(60)
+                continue
+
+            print(f'[Queue] {len(top_articles)} articles ready. '
+                  f'Starting 4-min slot schedule...\n')
+
+            for i, article in enumerate(top_articles, 1):
+                record_laptop_heartbeat()
+                db = get_db()  # fresh DB ref each slot — picks up any reconnect
+
+                try:
+                    db.articles.update_one(
+                        {'_id': article['_id'], 'status': 'queued'},
+                        {'$set': {'status': 'processing',
+                                  'updated_at': datetime.now(timezone.utc)}}
+                    )
+                except Exception as e:
+                    print(f'[DB Error] Failed to mark processing: {e}')
+                    time.sleep(5)
+                    continue
+
+                success, result = process_article_slot(
+                    article, i, len(top_articles), db)
+
+                if result == 'rate_limit':
+                    print('[!] Rate limit. Pausing 5 min before next article.')
+                    time.sleep(300)
+
+            print(f'\n[Cycle complete] Restarting cycle immediately...')
+            # Smart-skip logic at top of loop handles whether to scrape or not
+
+        except KeyboardInterrupt:
+            print('\n[Stopping] Keyboard interrupt. Exiting.')
+            sys.exit(0)
+        except Exception as e:
+            print(f'\n[CRITICAL ERROR] Unhandled exception: {e}')
+            print('[Recovery] Restarting in 60 seconds...')
+            try:
+                record_laptop_heartbeat()
+            except Exception:
+                pass
+            time.sleep(60)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -420,3 +401,4 @@ if __name__ == '__main__':
         run_batch_schedule()
     else:
         run_continuous_mode()
+
