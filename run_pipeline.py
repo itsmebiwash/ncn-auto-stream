@@ -58,31 +58,40 @@ def _delete(path: str) -> None:
 
 
 def _mark_posted(db, article, fb_post_id, reel_id=None):
-    db.articles.update_one(
-        {'_id': article['_id']},
-        {'$set': {
-            'status':          'posted',
-            'facebook_post_id': fb_post_id,
-            'facebook_reel_id': reel_id,
-            'updated_at':       datetime.now(timezone.utc),
-            'posted_at':        datetime.now(timezone.utc)
-        }}
-    )
+    try:
+        db.articles.update_one(
+            {'_id': article['_id']},
+            {'$set': {
+                'status':          'posted',
+                'facebook_post_id': fb_post_id,
+                'facebook_reel_id': reel_id,
+                'updated_at':       datetime.now(timezone.utc),
+                'posted_at':        datetime.now(timezone.utc)
+            }}
+        )
+    except Exception as e:
+        print(f'  [DB Error] Failed to mark posted: {e}')
 
 
 def _mark_failed(db, article, reason=''):
-    db.articles.update_one(
-        {'_id': article['_id']},
-        {'$set': {'status': 'failed', 'fail_reason': reason,
-                  'updated_at': datetime.now(timezone.utc)}}
-    )
+    try:
+        db.articles.update_one(
+            {'_id': article['_id']},
+            {'$set': {'status': 'failed', 'fail_reason': reason,
+                      'updated_at': datetime.now(timezone.utc)}}
+        )
+    except Exception as e:
+        print(f'  [DB Error] Failed to mark failed: {e}')
 
 
 def _mark_requeue(db, article):
-    db.articles.update_one(
-        {'_id': article['_id']},
-        {'$set': {'status': 'queued', 'updated_at': datetime.now(timezone.utc)}}
-    )
+    try:
+        db.articles.update_one(
+            {'_id': article['_id']},
+            {'$set': {'status': 'queued', 'updated_at': datetime.now(timezone.utc)}}
+        )
+    except Exception as e:
+        print(f'  [DB Error] Failed to requeue: {e}')
 
 
 def _post_pre_rendered_reel(article):
@@ -178,10 +187,13 @@ def process_article_slot(article, slot_index, total, db):
     # _delete(reel_path)
 
     # Clear the local path from DB so we don't accidentally retry a deleted file
-    db.articles.update_one(
-        {'_id': article['_id']},
-        {'$unset': {'final_image_path': ''}}
-    )
+    try:
+        db.articles.update_one(
+            {'_id': article['_id']},
+            {'$unset': {'final_image_path': ''}}
+        )
+    except Exception as e:
+        print(f'  [DB Error] Failed to unset image path: {e}')
 
     print('  [✓] Article fully processed (Image only).')
 
@@ -338,11 +350,16 @@ def run_continuous_mode():
         for i, article in enumerate(top_articles, 1):
             record_laptop_heartbeat()
 
-            db.articles.update_one(
-                {'_id': article['_id'], 'status': 'queued'},
-                {'$set': {'status': 'processing',
-                          'updated_at': datetime.now(timezone.utc)}}
-            )
+            try:
+                db.articles.update_one(
+                    {'_id': article['_id'], 'status': 'queued'},
+                    {'$set': {'status': 'processing',
+                              'updated_at': datetime.now(timezone.utc)}}
+                )
+            except Exception as e:
+                print(f'[DB Error] Failed to update status to processing: {e}')
+                time.sleep(5)
+                continue
             success, result = process_article_slot(
                 article, i, len(top_articles), db)
 
