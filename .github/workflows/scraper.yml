@@ -1,14 +1,16 @@
-name: Hourly News Scraper & Publisher
+name: News Scraper & Publisher (Every 30 min)
 
 on:
   schedule:
-    - cron: '0 * * * *' # Runs every hour
-  workflow_dispatch:
+    - cron: '0 * * * *'   # top of every hour
+    - cron: '30 * * * *'  # half-past every hour → effectively every 30 minutes
+  workflow_dispatch:       # manual trigger
 
 jobs:
   run-scraper:
     runs-on: ubuntu-latest
-    timeout-minutes: 55  # Prevents zombie runs from blocking the next hour
+    timeout-minutes: 28   # must finish within 28 min so the next 30-min run can start
+
     steps:
       - uses: actions/checkout@v4
 
@@ -16,6 +18,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
 
       - name: Install System Dependencies
         run: |
@@ -30,6 +39,7 @@ jobs:
       - name: Run Pipeline (Batch Mode)
         env:
           GROQ_API_KEYS: ${{ secrets.GROQ_API_KEYS }}
+          GROQ_KEYS: ${{ secrets.GROQ_API_KEYS }}
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
           FB_ACCESS_TOKEN: ${{ secrets.FB_ACCESS_TOKEN }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}

@@ -453,7 +453,7 @@ def render_images_for_top_n(n: int = TOP_N_TO_RENDER) -> int:
     Returns number successfully queued.
     """
     db = get_db()
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=3)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
 
     top_articles = list(db.articles.find(
         {'status': 'text_scored', 'created_at': {'$gte': cutoff}},
