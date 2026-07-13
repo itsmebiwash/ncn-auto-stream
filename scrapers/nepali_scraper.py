@@ -227,16 +227,20 @@ def _score_single_article(source_name: str, title: str, url: str, category: str,
     db = get_db()
     now = datetime.now(timezone.utc)
 
-    db.articles.insert_one({
-        'source_name': source_name,
-        'original_url': url,
-        'original_title': title,
-        'content_hash': content_hash,
-        'category': category,
-        'status': 'scraped',
-        'created_at': now,
-        'updated_at': now
-    })
+    try:
+        db.articles.insert_one({
+            'source_name': source_name,
+            'original_url': url,
+            'original_title': title,
+            'content_hash': content_hash,
+            'category': category,
+            'status': 'scraped',
+            'created_at': now,
+            'updated_at': now
+        })
+    except Exception:
+        # Duplicate key — article already in DB, skip Groq call
+        return
 
     groq_data = process_text_with_groq(title, '', category=category)
     if not groq_data:

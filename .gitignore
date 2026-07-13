@@ -6,7 +6,19 @@ __pycache__/
 # Output generated media — never commit these to git
 output/
 logs/
+
+# Runtime logs and temp files — never commit
+*.log
 debug.log
+pipeline_debug.log
+test_run.log
+
+# Local SQLite fallback database (runtime only)
+*.db
+local_fallback.db
+
+# Dashboard stats (runtime state)
+dashboard_stats.txt
 
 # Keep the folder structure but ignore contents
 !output/.gitkeep

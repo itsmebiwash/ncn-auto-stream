@@ -277,17 +277,22 @@ def run_batch_schedule():
         
     # pre_render_reels(top_articles)  # DISABLED FOR NOW
 
-    db = get_db()
     posted_count = 0
     for i, article in enumerate(top_articles, 1):
-        db.articles.update_one(
-            {'_id': article['_id'], 'status': 'queued'},
-            {'$set': {'status': 'processing', 'updated_at': datetime.now(timezone.utc)}}
-        )
+        db = get_db()  # refresh each slot so reconnect is picked up if DB dropped
+        try:
+            db.articles.update_one(
+                {'_id': article['_id'], 'status': 'queued'},
+                {'$set': {'status': 'processing', 'updated_at': datetime.now(timezone.utc)}}
+            )
+        except Exception as e:
+            print(f'[DB Error] Could not mark processing: {e}')
+            time.sleep(3)
+            continue
         success, result = process_article_slot(article, i, len(top_articles), db)
         if result == 'rate_limit':
-            print('[!] Rate limit. Stopping batch.')
-            break
+            print('[!] Rate limit hit. Waiting 5 min before next article.')
+            time.sleep(300)
         if success:
             posted_count += 1
 
@@ -392,6 +397,10 @@ def run_continuous_mode():
         print(f'\n[Cycle complete] Waiting for next scheduled scrape...')
         # Sleep until it's time for the next full cycle (if adaptive scrape wasn't triggered)
         sleep_remaining = next_scrape_at - time.time()
+        if sleep_remaining > 3600:
+            # Safety cap: never wait more than 1 hour between cycles
+            print(f'[Safety] next_scrape_at was {sleep_remaining/60:.0f}min away — capping to 60min.')
+            sleep_remaining = 3600
         while sleep_remaining > 0:
             record_laptop_heartbeat()
             time.sleep(min(60, sleep_remaining))
