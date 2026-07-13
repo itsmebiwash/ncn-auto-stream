@@ -17,7 +17,7 @@ import argparse
 import os
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 try:
     sys.stdout.reconfigure(encoding='utf-8')
@@ -289,9 +289,19 @@ def run_continuous_mode():
         print(f'\n[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] '
               f'Starting scrape+score cycle...')
 
-        # ── Phase 1: Scrape & score ─────────────────────────────
-        print('[Phase 1] Scraping & scoring all sources (text only)...')
-        scrape_and_score_all()
+        # ── Smart skip: if we already have 15+ queued articles, skip Phase 1 ──
+        from database.db_client import get_db as _gdb
+        _db = _gdb()
+        _cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        _already_queued = _db.articles.count_documents(
+            {'status': 'queued', 'created_at': {'$gte': _cutoff}})
+        if _already_queued >= 15:
+            print(f'[Phase 1] Skipping scrape — {_already_queued} articles already queued.')
+            t_scrape = 0
+        else:
+            # ── Phase 1: Scrape & score ─────────────────────────────
+            print('[Phase 1] Scraping & scoring all sources (text only)...')
+            scrape_and_score_all()
 
         # ── Phase 2: Render top-15 images ──────────────────────
         print('[Phase 2] Rendering images for top 15 articles...')

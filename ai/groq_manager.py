@@ -96,6 +96,7 @@ Respond ONLY with this exact JSON structure:
             if "priority_score" not in data:
                 data["priority_score"] = data.get("virality_score", 5.0)
 
+            time.sleep(0.5)  # Throttle: ~2 req/sec to avoid 429s
             return data
 
         except Exception as e:

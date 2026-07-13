@@ -36,7 +36,7 @@ from utils.renderer import render_html_card
 from config.settings import PEXELS_API_KEY
 
 # ── Constants ─────────────────────────────────────────────────────────────────
-MAX_ARTICLES_PER_SOURCE = 8   # Max articles scraped per source per cycle
+MAX_ARTICLES_PER_SOURCE = 3   # Max articles scraped per source per cycle (48×3=144 Groq calls max)
 TOP_N_TO_RENDER         = 15  # Only render images for the top N priority articles
 
 # ── Output post-processors ────────────────────────────────────────────────────
@@ -485,15 +485,17 @@ def run_scraper_cycle():
 
 # ── Top-15 queue fetcher (called by run_pipeline scheduler) ──────────────────
 def get_top_15_queued() -> list:
-    """Returns up to 15 highest-priority queued articles from the last 3 hours."""
+    """Returns up to 15 highest-priority queued articles from the last 24 hours."""
     db = get_db()
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=3)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
     try:
-        return list(db.articles.find(
+        articles = list(db.articles.find(
             {'status': 'queued', 'created_at': {'$gte': cutoff}},
             sort=[('priority_score', -1), ('created_at', -1)],
             limit=15
         ))
+        print(f'[Queue] Found {len(articles)} queued articles ready to post.')
+        return articles
     except Exception as e:
         print(f'[DB] Error fetching top-15: {e}')
         return []
