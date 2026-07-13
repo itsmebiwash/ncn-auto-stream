@@ -6,6 +6,7 @@ __pycache__/
 # Output generated media — never commit these to git
 output/
 logs/
+debug.log
 
 # Keep the folder structure but ignore contents
 !output/.gitkeep
