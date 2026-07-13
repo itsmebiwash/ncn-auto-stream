@@ -8,26 +8,34 @@ on:
 jobs:
   run-scraper:
     runs-on: ubuntu-latest
+    timeout-minutes: 55  # Prevents zombie runs from blocking the next hour
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install System Dependencies (Chromium for html2image)
+
+      - name: Install System Dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y chromium-browser
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends chromium-browser ffmpeg
+
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
       - name: Run Pipeline (Batch Mode)
         env:
           GROQ_API_KEYS: ${{ secrets.GROQ_API_KEYS }}
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
           FB_ACCESS_TOKEN: ${{ secrets.FB_ACCESS_TOKEN }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-          MONGO_URL: ${{ secrets.MONGO_URL || '' }}
+          MONGO_URL: ${{ secrets.MONGO_URL }}
           GITHUB_ACTIONS: "true"
-        run: python run_pipeline.py --batch-mode
+        run: |
+          echo "[GH Actions] Starting batch pipeline run at $(date)"
+          python run_pipeline.py --batch-mode
+          echo "[GH Actions] Pipeline finished at $(date)"
