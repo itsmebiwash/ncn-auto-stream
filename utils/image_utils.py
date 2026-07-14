@@ -20,10 +20,15 @@ def optimize_image(image_url_or_path, output_path, max_size_kb=500, target_size=
             
         if check_dimensions:
             # 1. Check URL for ad/logo/banner keywords
-            bad_keywords = ['logo', 'banner', 'ad', 'sponsor', 'promo', 'sidebar', 'footer', 'header', 'icon', 'avatar', 'ads', 'advertise']
+            bad_keywords = ['logo', 'banner', 'ad', 'sponsor', 'promo', 'sidebar', 'footer', 'header', 'icon', 'avatar', 'ads', 'advertise', 'placeholder', 'default', 'og-image', 'brand', 'watermark']
             url_lower = image_url_or_path.lower()
             if any(word in url_lower for word in bad_keywords):
                 return False, f"Image URL contains blocked keyword"
+                
+            # 1.5 Check raw file size (logos are usually tiny, < 15KB)
+            if image_url_or_path.startswith("http"):
+                if len(response.content) < 15360:
+                    return False, f"Image rejected as logo/placeholder (too small: {len(response.content)} bytes)"
 
             # 2. Check dimensions
             w, h = img.size
