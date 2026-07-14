@@ -148,9 +148,21 @@ def process_article_slot(article, slot_index, total, db):
     print(f'{"="*65}')
 
     # ── Step 0: Ensure image file actually exists locally ────────
-    image_path = article.get('final_image_path')
+    # The DB may store either a bare filename OR a legacy absolute path.
+    # Reconstruct the full local path at runtime so it works regardless
+    # of which OS (Linux/GitHub vs Windows/Laptop) rendered the image.
+    _project_root = os.path.dirname(os.path.abspath(__file__))
+    _output_dir   = os.path.join(_project_root, 'output')
+    raw_path = article.get('final_image_path', '')
+    if raw_path and not os.path.isabs(raw_path):
+        # Bare filename — reconstruct full local path
+        image_path = os.path.join(_output_dir, raw_path)
+    else:
+        image_path = raw_path
+
     if not image_path or not os.path.exists(image_path):
-        print(f'  [!] Image missing locally (path: {image_path}). Reverting to text_scored to re-render.')
+        print(f'  [!] Image not found locally ({os.path.basename(image_path or "?")}).'
+              f' Reverting to text_scored to re-render.')
         try:
             db.articles.update_one(
                 {'_id': article['_id']},
@@ -159,6 +171,9 @@ def process_article_slot(article, slot_index, total, db):
         except Exception:
             pass
         return False, 'missing_image'
+
+    # Patch the article dict so post_to_facebook sees the correct local path
+    article['final_image_path'] = image_path
 
     # ── Step 1: Post image card ─────────────────────────────────
     print('  [T+0s] Posting image card to Facebook Feed...')

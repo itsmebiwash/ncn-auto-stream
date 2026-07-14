@@ -25,7 +25,7 @@ def run_dry_run_test():
         print("[FAIL] Groq Text processing failed.")
         return
         
-    print(f"[OK] Groq Text Response: Headline = '{ai_result.get('card_headline_nepali')}'")
+    print(f"[OK] Groq Text Response: Headline = '{ai_result.get('card_headline_english')}'")
     
     # 4. Test Card Renderer
     # We need a sample image. We can use assets/logo.png as a placeholder background
@@ -39,8 +39,8 @@ def run_dry_run_test():
     success, result_path = render_html_card(
         image_path=bg_image,
         category="NEPAL CENTRAL NEWS",
-        headline=ai_result.get('card_headline_nepali', 'Headline'),
-        subtitle=ai_result.get('card_subtitle_nepali', 'Subtitle'),
+        headline=ai_result.get('card_headline_english', 'Headline'),
+        subtitle=ai_result.get('card_subtitle_english', 'Subtitle'),
         output_path=card_path
     )
     

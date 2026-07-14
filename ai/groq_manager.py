@@ -32,11 +32,11 @@ Strict Formatting Requirements:
    - Even if the input news article is in Nepali, translate and write everything in English.
    - Do NOT write a single word of Nepali or Devanagari script.
 
-4. `card_headline_nepali` (English text): 4 to 7 words MAX. Short, punchy, realistic news headline written in English.
+4. `card_headline_english` (English text): 4 to 7 words MAX. Short, punchy, realistic news headline written in English.
    - Example: "Government Urges Safety Amid Heavy Rain"
    - Do not cut off words. Ensure it is grammatically correct and fits fully.
 
-5. `card_subtitle_nepali` (English text): 12 to 20 words. Add context without revealing all details. Written in English.
+5. `card_subtitle_english` (English text): 12 to 20 words. Add context without revealing all details. Written in English.
    - Example: "Authorities issue high alert across Nepal as monsoon rains trigger flooding and disrupt transportation."
 
 6. `fb_caption_text` (English text): Strictly factual report covering Who, What, When, Where, Why, How. Written in English.
@@ -60,8 +60,8 @@ Respond ONLY with this exact JSON structure:
   "is_advertisement_or_promo": false,
   "article_category": "Politics",
   "priority_score": 7.5,
-  "card_headline_nepali": "string (4-7 words in English)",
-  "card_subtitle_nepali": "string (12-20 words in English)",
+  "card_headline_english": "string (4-7 words in English)",
+  "card_subtitle_english": "string (12-20 words in English)",
   "fb_caption_text": "string (max 4 sentences in English, no repeats, no source placeholder)",
   "hashtags": ["#NepalCentralNews", "#Nepal", "#BreakingNews", "#Kathmandu", "#NCN"],
   "pexels_search_keywords": ["keyword 1", "keyword 2"]

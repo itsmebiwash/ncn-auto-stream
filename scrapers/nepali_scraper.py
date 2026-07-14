@@ -267,7 +267,7 @@ def _score_single_article(source_name: str, title: str, url: str, category: str,
     else:
         article_category = category if category.lower() in _VALID_CATEGORIES else 'General'
 
-    head_for_slug = groq_data.get('card_headline_nepali', title)
+    head_for_slug = groq_data.get('card_headline_english', title)
     cat_slug  = make_slug(article_category)
     head_slug = make_slug(head_for_slug) or content_hash[:8]
     topic_slug = f'{cat_slug}_{head_slug}'
@@ -280,8 +280,8 @@ def _score_single_article(source_name: str, title: str, url: str, category: str,
         {'$set': {
             'status':               'text_scored',
             'category':             article_category,   # overwrite with AI-detected category
-            'english_headline':     groq_data.get('card_headline_nepali', ''),
-            'english_caption':      groq_data.get('card_subtitle_nepali', ''),
+            'english_headline':     groq_data.get('card_headline_english', ''),
+            'english_caption':      groq_data.get('card_subtitle_english', ''),
             'english_description':  caption_clean,
             'hashtags':             hashtags_clean,
             'pexels_search_keywords': groq_data.get('pexels_search_keywords', []),
@@ -439,16 +439,21 @@ def _render_single_article(article, index=1):
         final_path = rend_path   # use unoptimised render if optimise fails
 
     final_abs = os.path.abspath(final_path)
+    # Store ONLY the filename — never the full absolute path.
+    # Full paths break when GitHub Actions (Linux) generates images and the
+    # local Windows laptop later tries to post them from a different filesystem.
+    # The posting code (process_article_slot) reconstructs the full path at runtime.
+    final_filename = os.path.basename(final_abs)
     db.articles.update_one(
         {'content_hash': content_hash},
         {'$set': {
             'status':            'queued',
             'original_image_url': image_url,
-            'final_image_path':   final_abs,
+            'final_image_path':   final_filename,   # filename only, not full path
             'updated_at':         datetime.now(timezone.utc)
         }}
     )
-    print(f'  [{source_name}] ✓ Rendered → {os.path.basename(final_abs)}')
+    print(f'  [{source_name}] ✓ Rendered → {final_filename}')
     return True
 
 
