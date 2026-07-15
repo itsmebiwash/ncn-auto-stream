@@ -294,6 +294,10 @@ def run_batch_schedule():
 
     posted_count = 0
     for i, article in enumerate(top_articles, 1):
+        if time.time() - t0 > 25 * 60:
+            print('[GitHub] Approaching 28-min timeout. Exiting batch gracefully. Next cron will resume.')
+            break
+            
         db = get_db()  # refresh each slot so reconnect is picked up if DB dropped
         try:
             db.articles.update_one(

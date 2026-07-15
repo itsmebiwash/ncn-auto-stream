@@ -62,7 +62,10 @@ def render_html_card(image_path: str, category: str, headline: str,
 
         # Render with html2image
         from html2image import Html2Image
-        hti = Html2Image(size=(1080, 1350))
+        hti = Html2Image(
+            size=(1080, 1350),
+            custom_flags=['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--hide-scrollbars']
+        )
         output_dir      = os.path.dirname(os.path.abspath(output_path))
         output_filename = os.path.basename(output_path)
         hti.output_path = output_dir
