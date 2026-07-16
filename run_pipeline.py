@@ -253,24 +253,25 @@ def run_batch_schedule():
     init_db()
 
     if os.environ.get('GITHUB_ACTIONS') == 'true':
-        from database.db_client import get_db as _get_db
-        from datetime import datetime as _dt, timezone as _tz, timedelta as _td
-        try:
-            _db = _get_db()
-            _hb = _db.telemetry.find_one({'device': 'laptop'})
-            if _hb:
-                _last = _hb['last_active']
-                if _last.tzinfo is None:
-                    _last = _last.replace(tzinfo=_tz.utc)
-                _diff = (_dt.now(_tz.utc) - _last).total_seconds() / 60.0
-                print(f'[GitHub] Laptop last heartbeat: {_diff:.1f} min ago.')
-                if _diff < 5.0:
-                    print('[GitHub] Laptop was active < 5 min ago. Skipping GitHub run.')
-                    sys.exit(0)
-                else:
-                    print(f'[GitHub] Laptop inactive ({_diff:.1f} min). Proceeding with GitHub Actions run.')
-        except Exception as _e:
-            print(f'[GitHub] Heartbeat check failed ({_e}). Proceeding anyway.')
+        print('[GitHub] Laptop heartbeat check disabled. Proceeding with GitHub Actions run.')
+        # from database.db_client import get_db as _get_db
+        # from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+        # try:
+        #     _db = _get_db()
+        #     _hb = _db.telemetry.find_one({'device': 'laptop'})
+        #     if _hb:
+        #         _last = _hb['last_active']
+        #         if _last.tzinfo is None:
+        #             _last = _last.replace(tzinfo=_tz.utc)
+        #         _diff = (_dt.now(_tz.utc) - _last).total_seconds() / 60.0
+        #         print(f'[GitHub] Laptop last heartbeat: {_diff:.1f} min ago.')
+        #         if _diff < 5.0:
+        #             print('[GitHub] Laptop was active < 5 min ago. Skipping GitHub run.')
+        #             sys.exit(0)
+        #         else:
+        #             print(f'[GitHub] Laptop inactive ({_diff:.1f} min). Proceeding with GitHub Actions run.')
+        # except Exception as _e:
+        #     print(f'[GitHub] Heartbeat check failed ({_e}). Proceeding anyway.')
 
     # Phase 1: Scrape + score (text only)
     print('\n[Phase 1] Scraping & scoring all sources...')
