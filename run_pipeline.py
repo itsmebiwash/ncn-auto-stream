@@ -161,16 +161,31 @@ def process_article_slot(article, slot_index, total, db):
         image_path = raw_path
 
     if not image_path or not os.path.exists(image_path):
-        print(f'  [!] Image not found locally ({os.path.basename(image_path or "?")}).'
-              f' Reverting to text_scored to re-render.')
+        print(f'  [!] Image not found locally. Attempting on-demand re-render...')
+        # Import here to avoid circular imports
+        from scrapers.nepali_scraper import _render_single_article
         try:
             db.articles.update_one(
                 {'_id': article['_id']},
                 {'$set': {'status': 'text_scored'}, '$unset': {'final_image_path': ''}}
             )
-        except Exception:
-            pass
-        return False, 'missing_image'
+            # Reload fresh article with updated status
+            article = db.articles.find_one({'_id': article['_id']})
+            if article and _render_single_article(article, index=slot_index):
+                # Reload again with image path set
+                article = db.articles.find_one({'_id': article['_id']})
+                raw_path = article.get('final_image_path', '')
+                if raw_path and not os.path.isabs(raw_path):
+                    image_path = os.path.join(_output_dir, raw_path)
+                else:
+                    image_path = raw_path
+                print(f'  [✓] On-demand render succeeded: {os.path.basename(image_path or "?")}')
+            else:
+                print(f'  [!] On-demand render also failed. Skipping article.')
+                return False, 'missing_image'
+        except Exception as re_err:
+            print(f'  [!] Re-render exception: {re_err}. Skipping article.')
+            return False, 'missing_image'
 
     # Patch the article dict so post_to_facebook sees the correct local path
     article['final_image_path'] = image_path
@@ -225,16 +240,22 @@ def process_article_slot(article, slot_index, total, db):
 
     print('  [✓] Article fully processed (Image only).')
 
-    # ── Step 4: Sleep for remainder of 240s slot ────────────────
-    elapsed    = time.time() - slot_start
+    # ── Step 4: Sleep for remainder of 240s slot (LOCAL mode only) ────
+    elapsed = time.time() - slot_start
     log_feedback(article, fb_post_id=fb_id_or_err, reel_id=reel_id, processing_time_sec=elapsed)
-    
-    sleep_for  = SLOT_DURATION - elapsed
-    if sleep_for > 0:
-        print(f'  [TIMER] Sleeping {sleep_for:.1f}s until T+240s...')
-        time.sleep(sleep_for)
+
+    # In GitHub Actions we skip the 4-min delay — the runner has only 28 min total.
+    # On local continuous mode the sleep is handled by the calling loop, not here.
+    is_github = os.environ.get('GITHUB_ACTIONS') == 'true'
+    if not is_github:
+        sleep_for = SLOT_DURATION - elapsed
+        if sleep_for > 0:
+            print(f'  [TIMER] Sleeping {sleep_for:.1f}s until T+240s...')
+            time.sleep(sleep_for)
+        else:
+            print('  [TIMER] Slot fully consumed. Moving immediately.')
     else:
-        print('  [TIMER] Slot fully consumed. Moving immediately.')
+        print(f'  [TIMER] GitHub Actions mode – no slot delay. Moving to next article.')
 
     return True, fb_id_or_err
 

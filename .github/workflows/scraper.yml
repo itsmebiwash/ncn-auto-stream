@@ -26,10 +26,15 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
           restore-keys: ${{ runner.os }}-pip-
 
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
       - name: Install System Dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends chromium-browser ffmpeg
+          sudo apt-get install -y --no-install-recommends ffmpeg
 
       - name: Install Python Dependencies
         run: |
@@ -45,6 +50,8 @@ jobs:
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           MONGO_URL: ${{ secrets.MONGO_URL }}
           GITHUB_ACTIONS: "true"
+          PYTHONUNBUFFERED: "1"
+          PYTHONIOENCODING: "utf-8"
         run: |
           echo "[GH Actions] Starting batch pipeline run at $(date)"
           python run_pipeline.py --batch-mode
