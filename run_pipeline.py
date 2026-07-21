@@ -289,38 +289,64 @@ def run_batch_schedule():
         #         if _diff < 5.0:
         #             print('[GitHub] Laptop was active < 5 min ago. Skipping GitHub run.')
         #             sys.exit(0)
-        #         else:
-        #             print(f'[GitHub] Laptop inactive ({_diff:.1f} min). Proceeding with GitHub Actions run.')
-        # except Exception as _e:
-        #     print(f'[GitHub] Heartbeat check failed ({_e}). Proceeding anyway.')
-
-    # Phase 1: Scrape + score (text only)
-    print('\n[Phase 1] Scraping & scoring all sources...')
     t0 = time.time()
-    scrape_and_score_all()
+    db = get_db()
 
-    # Phase 2: Render images for top 15 only
-    print('\n[Phase 2] Rendering images for top 15 articles...')
-    render_images_for_top_n(TOP_N)
-    t_scrape = time.time() - t0
-    print(f'[Scraper] Total scrape+render time: {t_scrape/60:.1f} minutes')
+    # ── CRITICAL FIX: Reset articles stuck in 'processing' from previous timed-out run ──
+    cutoff_24h = datetime.now(timezone.utc) - timedelta(hours=24)
+    stuck_result = db.articles.update_many(
+        {'status': 'processing', 'created_at': {'$gte': cutoff_24h}},
+        {'$set': {'status': 'queued', 'updated_at': datetime.now(timezone.utc)}}
+    )
+    if stuck_result.modified_count > 0:
+        print(f'[Startup] Reset {stuck_result.modified_count} stuck "processing" articles → "queued".')
 
-    # Phase 3: Post top 15
-    print('\n[Phase 3] Starting 4-minute dual-post schedule...')
+    # ── Check how many articles are already queued & ready to post ──
+    queued_count = db.articles.count_documents(
+        {'status': 'queued', 'created_at': {'$gte': cutoff_24h}}
+    )
+    print(f'[Startup] {queued_count} articles currently queued and ready to post.')
+
+    if queued_count >= 5:
+        # Enough articles ready — skip straight to posting, save the time budget
+        print('[Smart-Skip] 5+ articles queued. Skipping scrape to maximize posting time.')
+    else:
+        # Need fresh articles — run Phase 1 + 2
+        print('\n[Phase 1] Scraping & scoring all sources...')
+        scrape_and_score_all()
+
+        t_after_phase1 = time.time() - t0
+        remaining_min = 28 - (t_after_phase1 / 60)
+        print(f'[Phase 1] Done in {t_after_phase1/60:.1f} min. ~{remaining_min:.1f} min remaining.')
+
+        # Only render if we have at least 8 minutes left (each image takes ~30s)
+        if remaining_min >= 8:
+            print('\n[Phase 2] Rendering images for top 15 articles...')
+            render_images_for_top_n(TOP_N)
+            t_scrape = time.time() - t0
+            print(f'[Scraper] Total scrape+render time: {t_scrape/60:.1f} minutes')
+        else:
+            print(f'[Phase 2] SKIPPED — only {remaining_min:.1f} min left, not enough for rendering.')
+
+    # ── Phase 3: POST — this is the most important part ──
+    elapsed_before_post = time.time() - t0
+    print(f'\n[Phase 3] Starting posting. {28 - elapsed_before_post/60:.1f} min budget remaining.')
+
     top_articles = get_top_15_queued()
     if not top_articles:
-        print('[Phase 3] No articles ready. Exiting.')
+        print('[Phase 3] No articles ready to post. Exiting.')
         return
-        
-    # pre_render_reels(top_articles)  # DISABLED FOR NOW
+
+    print(f'[Phase 3] {len(top_articles)} articles ready. Posting now...')
 
     posted_count = 0
     for i, article in enumerate(top_articles, 1):
-        if time.time() - t0 > 25 * 60:
-            print('[GitHub] Approaching 28-min timeout. Exiting batch gracefully. Next cron will resume.')
+        elapsed = time.time() - t0
+        if elapsed > 25 * 60:
+            print(f'[GitHub] Approaching 28-min timeout after {elapsed/60:.1f} min. Stopping gracefully.')
             break
-            
-        db = get_db()  # refresh each slot so reconnect is picked up if DB dropped
+
+        db = get_db()
         try:
             db.articles.update_one(
                 {'_id': article['_id'], 'status': 'queued'},
