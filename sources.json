@@ -19,12 +19,6 @@
       "article_selector": "h2 a, h3 a, .news-title a"
     },
     {
-      "name": "Ekantipur",
-      "url": "https://ekantipur.com",
-      "category": "General",
-      "article_selector": "h2 a, h3 a, .teaser-title a"
-    },
-    {
       "name": "AnnapurnaPost",
       "url": "https://annapurnapost.com",
       "category": "General",
@@ -59,12 +53,6 @@
       "url": "https://lokaantar.com",
       "category": "General",
       "article_selector": "h2 a, h3 a"
-    },
-    {
-      "name": "NepalPress",
-      "url": "https://www.nepalpress.com",
-      "category": "General",
-      "article_selector": "h2 a, h3 a, .news-title a"
     },
     {
       "name": "Shilapatra",
@@ -121,25 +109,6 @@
       "article_selector": "h2 a, h3 a"
     },
     {
-      "name": "UjyaaloOnline",
-      "url": "https://www.ujyaaloonline.com",
-      "category": "General",
-      "article_selector": "h2 a, h3 a, .news-title a"
-    },
-    {
-      "name": "ReportersClub",
-      "url": "https://www.reportersclub.org",
-      "category": "General",
-      "article_selector": "h2 a, h3 a"
-    },
-    {
-      "name": "Arthabeed",
-      "url": "https://www.arthabeed.com",
-      "category": "Business",
-      "article_selector": "h2 a, h3 a, .post-title a"
-    },
-
-    {
       "name": "Bizshala",
       "url": "https://bizshala.com",
       "category": "Business",
@@ -148,12 +117,6 @@
     {
       "name": "Bizpati",
       "url": "https://www.bizpati.com",
-      "category": "Business",
-      "article_selector": "h2 a, h3 a"
-    },
-    {
-      "name": "AarthikNews",
-      "url": "https://aarthiknews.com",
       "category": "Business",
       "article_selector": "h2 a, h3 a"
     },
@@ -170,22 +133,10 @@
       "article_selector": "h2 a, h3 a, .title a"
     },
     {
-      "name": "BizNewsNepal",
-      "url": "https://biznessnews.com",
-      "category": "Business",
-      "article_selector": "h2 a, h3 a"
-    },
-    {
       "name": "AarthaSanjal",
       "url": "https://arthasanjal.com",
       "category": "Business",
       "article_selector": "h2 a, h3 a"
-    },
-    {
-      "name": "TechPana",
-      "url": "https://www.techpana.com",
-      "category": "Technology",
-      "article_selector": "h2 a, h3 a, .post-title a"
     },
     {
       "name": "GadgetbyteNepal",
@@ -218,64 +169,10 @@
       "article_selector": "h2 a, h3 a"
     },
     {
-      "name": "RisingNepal",
-      "url": "https://risingnepal.gorkhapatraonline.com",
-      "category": "International",
-      "article_selector": "h2 a, h3 a"
-    },
-    {
-      "name": "AvenueNews",
-      "url": "https://www.avenuenews.com.np",
-      "category": "General",
-      "article_selector": "h2 a, h3 a"
-    },
-    {
-      "name": "HimalayaTV",
-      "url": "https://himalayatv.com",
-      "category": "General",
-      "article_selector": "h2 a, h3 a, .news-title a"
-    },
-    {
-      "name": "News24Nepal",
-      "url": "https://news24nepal.tv",
-      "category": "General",
-      "article_selector": "h2 a, h3 a"
-    },
-    {
-      "name": "PrimeTimes",
-      "url": "https://primetimes.tv",
-      "category": "General",
-      "article_selector": "h2 a, h3 a"
-    },
-    {
       "name": "KantipurTV",
       "url": "https://www.kantipurtv.com",
       "category": "General",
       "article_selector": "h2 a, h3 a, .news-link a"
-    },
-    {
-      "name": "JanataSamachar",
-      "url": "https://janatasamachar.com",
-      "category": "General",
-      "article_selector": "h2 a, h3 a"
-    },
-    {
-      "name": "Public4K",
-      "url": "https://www.public4k.com",
-      "category": "General",
-      "article_selector": "h2 a, h3 a"
-    },
-    {
-      "name": "EverestDainik",
-      "url": "https://everestdainik.com",
-      "category": "General",
-      "article_selector": "h2 a, h3 a"
-    },
-    {
-      "name": "Jamarko",
-      "url": "https://www.jamarko.com",
-      "category": "General",
-      "article_selector": "h2 a, h3 a"
     },
     {
       "name": "Livemint",
