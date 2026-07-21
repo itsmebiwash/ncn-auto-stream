@@ -57,7 +57,7 @@ def _delete(path: str) -> None:
         print(f'  [Cleanup Warning] Could not delete {path}: {e}')
 
 
-def _mark_posted(db, article, fb_post_id, reel_id=None):
+def _mark_posted(db, article, fb_post_id, reel_id=None, posted_from='local'):
     try:
         db.articles.update_one(
             {'_id': article['_id']},
@@ -65,6 +65,7 @@ def _mark_posted(db, article, fb_post_id, reel_id=None):
                 'status':          'posted',
                 'facebook_post_id': fb_post_id,
                 'facebook_reel_id': reel_id,
+                'posted_from':      posted_from,
                 'updated_at':       datetime.now(timezone.utc),
                 'posted_at':        datetime.now(timezone.utc)
             }}
@@ -222,7 +223,9 @@ def process_article_slot(article, slot_index, total, db):
     print('  [Reel] Generation and posting temporarily disabled.')
 
     # ── Step 3: Mark posted, delete local files immediately ────
-    _mark_posted(db, article, fb_id_or_err, reel_id)
+    is_github = os.environ.get('GITHUB_ACTIONS') == 'true'
+    posted_source = 'github' if is_github else 'local'
+    _mark_posted(db, article, fb_id_or_err, reel_id, posted_source)
 
     # Instant cleanup — delete image card the moment they are posted
     image_path = article.get('final_image_path')
