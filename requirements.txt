@@ -7,3 +7,6 @@ python-dotenv
 pymongo
 moviepy<2.0.0
 numpy
+
+flask
+werkzeug

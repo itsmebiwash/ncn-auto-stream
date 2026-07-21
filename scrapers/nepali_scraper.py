@@ -31,6 +31,7 @@ except AttributeError:
 from scrapers.deduplicator import generate_hash, is_duplicate
 from database.db_client import get_db
 from ai.groq_manager import process_text_with_groq
+from ai.metadata_extractor import extractMetadata
 from utils.image_utils import optimize_image, fetch_pexels_image
 from utils.renderer import render_html_card
 from config.settings import PEXELS_API_KEY
@@ -258,6 +259,23 @@ def _score_single_article(source_name: str, title: str, url: str, category: str,
     priority_score = float(groq_data.get('priority_score',
                                           groq_data.get('virality_score', 1.0)))
 
+    # Use extractMetadata for categorization, keywords, sentiment
+    metadata = extractMetadata(title, '')
+    keywords = metadata.get('keywords', [])
+    sentiment = metadata.get('sentiment', 'Neutral')
+    
+    # Calculate calculated_priority based on feedback loop
+    kw_score_sum = 0
+    has_scored_keywords = False
+    if keywords:
+        for kw in keywords:
+            kw_doc = db.keyword_scores.find_one({"keyword": kw})
+            if kw_doc:
+                has_scored_keywords = True
+                kw_score_sum += kw_doc.get("weight_score", 1.0)
+                
+    calculated_priority = kw_score_sum + priority_score
+
     # Use Groq-detected article category — NOT the source category.
     # e.g. a Crime article from Arthabeed (Business source) → 'Crime'
     raw_ai_category = groq_data.get('article_category', category).strip()
@@ -280,13 +298,16 @@ def _score_single_article(source_name: str, title: str, url: str, category: str,
         {'$set': {
             'status':               'text_scored',
             'category':             article_category,   # overwrite with AI-detected category
+            'keywords':             keywords,
+            'sentiment':            sentiment,
+            'has_scored_keywords':  has_scored_keywords,
             'english_headline':     groq_data.get('card_headline_english', ''),
             'english_caption':      groq_data.get('card_subtitle_english', ''),
             'english_description':  caption_clean,
             'hashtags':             hashtags_clean,
             'pexels_search_keywords': groq_data.get('pexels_search_keywords', []),
             'topic_slug':           topic_slug,
-            'priority_score':       priority_score,
+            'priority_score':       calculated_priority,
             'updated_at':           datetime.now(timezone.utc)
         }}
     )
@@ -499,12 +520,27 @@ def get_top_15_queued() -> list:
     db = get_db()
     cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
     try:
-        articles = list(db.articles.find(
-            {'status': 'queued', 'created_at': {'$gte': cutoff}},
-            sort=[('priority_score', -1), ('created_at', -1)],
-            limit=15
+        # Diversity Rule: 15% of 15 is 2. Select 2 unscored articles by recency.
+        unscored_articles = list(db.articles.find(
+            {'status': 'queued', 'created_at': {'$gte': cutoff}, 'has_scored_keywords': False},
+            sort=[('created_at', -1)],
+            limit=2
         ))
-        print(f'[Queue] Found {len(articles)} queued articles ready to post.')
+        
+        unscored_ids = [a['_id'] for a in unscored_articles]
+        scored_limit = 15 - len(unscored_articles)
+        
+        scored_articles = list(db.articles.find(
+            {'status': 'queued', 'created_at': {'$gte': cutoff}, '_id': {'$nin': unscored_ids}},
+            sort=[('priority_score', -1), ('created_at', -1)],
+            limit=scored_limit
+        ))
+        
+        articles = unscored_articles + scored_articles
+        # Sort combined list by priority_score descending
+        articles.sort(key=lambda x: x.get('priority_score', 0), reverse=True)
+        
+        print(f'[Queue] Found {len(articles)} queued articles ready to post. ({len(unscored_articles)} new topics for diversity)')
         return articles
     except Exception as e:
         print(f'[DB] Error fetching top-15: {e}')

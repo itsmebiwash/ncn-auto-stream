@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual Publisher | Nepal Central News</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --bg-color: #0a0f1e;
+            --surface: #111827;
+            --surface2: #1f2937;
+            --border: #374151;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --success: #10b981;
+            --error: #ef4444;
+            --accent: #818cf8;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+        }
+
+        /* ── Top Nav ── */
+        .topnav {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 14px 32px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .topnav h1 {
+            font-size: 18px;
+            font-weight: 700;
+            background: linear-gradient(to right, #60a5fa, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .topnav span { color: var(--text-muted); font-size: 13px; margin-left: auto; }
+
+        /* ── Layout: 2 columns ── */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 480px 1fr;
+            gap: 0;
+            height: calc(100vh - 53px);
+        }
+
+        /* ── Left Panel (form) ── */
+        .form-panel {
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 28px 28px 40px 28px;
+        }
+
+        .section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: var(--accent);
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .form-group { margin-bottom: 18px; }
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: var(--text-muted);
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        input[type="text"]:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+        textarea { resize: vertical; min-height: 90px; }
+
+        /* ── Image Upload ── */
+        .image-upload {
+            border: 2px dashed var(--border);
+            border-radius: 10px;
+            padding: 28px;
+            text-align: center;
+            cursor: pointer;
+            background-color: var(--bg-color);
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .image-upload:hover { border-color: var(--primary); background-color: rgba(59,130,246,0.04); }
+        .image-upload input[type="file"] {
+            position: absolute; width: 100%; height: 100%; top: 0; left: 0; opacity: 0; cursor: pointer;
+        }
+        .upload-icon { font-size: 32px; margin-bottom: 8px; display: block; }
+        .upload-text { color: var(--text-muted); font-size: 13px; }
+        #imgPreviewThumb {
+            max-width: 100%; max-height: 140px; border-radius: 6px;
+            display: none; margin: 0 auto; object-fit: cover;
+        }
+
+        /* ── Template Picker ── */
+        .template-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+        .template-row select {
+            flex: 1;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 14px;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        .template-row select:focus { outline: none; border-color: var(--primary); }
+        .shuffle-btn {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            border-radius: 8px;
+            padding: 10px 14px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.2s;
+        }
+        .shuffle-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* ── Submit Button ── */
+        .btn {
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 13px 24px;
+            font-size: 15px;
+            font-weight: 600;
+            width: 100%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            transition: opacity 0.2s;
+            margin-top: 8px;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .spinner {
+            display: none;
+            width: 18px; height: 18px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .alert {
+            padding: 13px 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-size: 14px;
+            font-weight: 500;
+            display: none;
+        }
+        .alert.success { background: rgba(16,185,129,0.1); color: var(--success); border: 1px solid rgba(16,185,129,0.2); display: block; }
+        .alert.error   { background: rgba(239,68,68,0.1);   color: var(--error);   border: 1px solid rgba(239,68,68,0.2);   display: block; }
+
+        /* ── Right Panel (preview) ── */
+        .preview-panel {
+            background: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .preview-header {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .preview-header h2 { font-size: 14px; font-weight: 600; color: var(--text-muted); }
+        .preview-badge {
+            background: rgba(129, 140, 248, 0.15);
+            color: var(--accent);
+            border: 1px solid rgba(129, 140, 248, 0.3);
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        /* The actual preview card (scaled 1080x1350 → fits in panel) */
+        .preview-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 520px;
+        }
+        .preview-scale-container {
+            width: 100%;
+            padding-bottom: 125%; /* 1350/1080 ratio */
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.6);
+        }
+        .preview-iframe-wrap {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+        }
+        .preview-iframe-wrap iframe {
+            width: 1080px;
+            height: 1350px;
+            border: none;
+            transform-origin: top left;
+        }
+
+        /* Hint text under preview */
+        .preview-hint {
+            margin-top: 14px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        /* divider */
+        .divider { margin: 20px 0; border: none; border-top: 1px solid var(--border); }
+    </style>
+</head>
+<body>
+
+<div class="topnav">
+    <span>📰</span>
+    <h1>Nepal Central News — Manual Publisher</h1>
+    <span>Local only • Laptop mode</span>
+</div>
+
+<div class="main-layout">
+
+    <!-- ══ LEFT PANEL: Form ══ -->
+    <div class="form-panel">
+
+        <p class="section-title">Upload Image</p>
+        <div class="form-group">
+            <div class="image-upload" id="dropZone">
+                <span class="upload-icon">📸</span>
+                <p class="upload-text" id="uploadText">Drag & drop or click to choose image</p>
+                <img id="imgPreviewThumb" alt="thumb">
+                <input type="file" id="imageInput" accept="image/*">
+            </div>
+        </div>
+
+        <hr class="divider">
+        <p class="section-title">News Template</p>
+
+        <div class="template-row">
+            <select id="templateSelect">
+                <option value="0">🎲 Random (auto-pick)</option>
+                <option value="1">Template 01 – Business / Emerald</option>
+                <option value="2">Template 02 – Education / Blue</option>
+                <option value="3">Template 03 – Breaking / Red</option>
+                <option value="4">Template 04 – Politics / Dark</option>
+                <option value="5">Template 05 – Sports / Orange</option>
+                <option value="6">Template 06 – Health / Green</option>
+                <option value="7">Template 07 – Crime / Deep Red</option>
+                <option value="8">Template 08 – International / Navy</option>
+                <option value="9">Template 09 – Environment / Forest</option>
+                <option value="10">Template 10 – Science / Purple</option>
+                <option value="11">Template 11 – Technology / Cyan</option>
+                <option value="12">Template 12 – Entertainment / Pink</option>
+                <option value="13">Template 13 – Weather / Sky</option>
+                <option value="14">Template 14 – Lifestyle / Gold</option>
+                <option value="15">Template 15 – Opinion / Slate</option>
+                <option value="16">Template 16 – Featured / Premium</option>
+            </select>
+            <button class="shuffle-btn" id="shuffleBtn" title="Shuffle template">🔀</button>
+        </div>
+
+        <hr class="divider">
+        <p class="section-title">News Content</p>
+
+        <div class="form-group">
+            <label for="headline">Headline <small style="color:#6b7280">(shown on image)</small></label>
+            <input type="text" id="headline" placeholder="e.g. PM calls emergency cabinet meeting...">
+        </div>
+
+        <div class="form-group">
+            <label for="subtitle">Subtitle / Description <small style="color:#6b7280">(shown on image)</small></label>
+            <textarea id="subtitle" placeholder="Short description that appears below the headline on the template..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="source">Source Name</label>
+            <input type="text" id="source" placeholder="e.g. Nepal Central News, Kantipur..." value="Nepal Central News">
+        </div>
+
+        <hr class="divider">
+        <p class="section-title">Facebook Post</p>
+
+        <div class="form-group">
+            <label for="caption">Facebook Caption</label>
+            <textarea id="caption" style="min-height:130px" placeholder="Write the full text that will appear on Facebook..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="hashtags">Hashtags</label>
+            <input type="text" id="hashtags" value="#NepalCentralNews #Nepal #NCN">
+        </div>
+
+        <button class="btn" id="submitBtn" type="button">
+            <span class="spinner" id="spinner"></span>
+            <span id="btnText">🚀 Render & Publish to Facebook</span>
+        </button>
+
+        <button class="btn" id="downloadBtn" type="button" style="background: linear-gradient(135deg, #10b981, #059669); margin-top: 12px;">
+            <span class="spinner" id="downloadSpinner"></span>
+            <span id="downloadBtnText">📥 Download Image Only</span>
+        </button>
+
+        <div id="statusAlert" class="alert"></div>
+    </div>
+
+    <!-- ══ RIGHT PANEL: Live Preview ══ -->
+    <div class="preview-panel">
+        <div class="preview-header">
+            <h2>🖼 Live Preview</h2>
+            <span class="preview-badge" id="templateBadge">Template 01</span>
+        </div>
+
+        <div class="preview-wrapper">
+            <div class="preview-scale-container" id="scaleContainer">
+                <div class="preview-iframe-wrap" id="iframeWrap">
+                    <iframe id="previewFrame" title="Preview"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <p class="preview-hint">Preview updates as you type. The final rendered image may differ slightly.</p>
+    </div>
+</div>
+
+<script>
+    // ── Template HTML sources (embedded inline for preview) ──────────────────
+    // These are minimal CSS representations of each template's color scheme
+    // for the live preview. The actual rendering uses the full HTML template.
+    const TEMPLATES = {
+        1:  { bg: 'linear-gradient(160deg, #052e16 0%, #064e3b 40%, #0f172a 100%)', badge: '#059669', stripe: 'linear-gradient(90deg,#059669,#b8860b)', font: 'Montserrat', name: 'Template 01 – Business', text: '#fff' },
+        2:  { bg: 'linear-gradient(160deg, #0f172a 0%, #1e3a5f 40%, #0f172a 100%)', badge: '#3b82f6', stripe: 'linear-gradient(90deg,#3b82f6,#6366f1)', font: 'Montserrat', name: 'Template 02 – Education', text: '#fff' },
+        3:  { bg: 'linear-gradient(160deg, #1c0000 0%, #450a0a 40%, #0f172a 100%)', badge: '#dc2626', stripe: 'linear-gradient(90deg,#dc2626,#f97316)', font: 'Archivo Black', name: 'Template 03 – Breaking', text: '#fff' },
+        4:  { bg: 'linear-gradient(160deg, #111827 0%, #1e293b 40%, #0f172a 100%)', badge: '#6d28d9', stripe: 'linear-gradient(90deg,#6d28d9,#8b5cf6)', font: 'Montserrat', name: 'Template 04 – Politics', text: '#fff' },
+        5:  { bg: 'linear-gradient(160deg, #1c0a00 0%, #7c2d12 40%, #0f172a 100%)', badge: '#ea580c', stripe: 'linear-gradient(90deg,#ea580c,#fbbf24)', font: 'Montserrat', name: 'Template 05 – Sports', text: '#fff' },
+        6:  { bg: 'linear-gradient(160deg, #022c22 0%, #065f46 40%, #0f172a 100%)', badge: '#059669', stripe: 'linear-gradient(90deg,#059669,#34d399)', font: 'Poppins', name: 'Template 06 – Health', text: '#fff' },
+        7:  { bg: 'linear-gradient(160deg, #150003 0%, #4c0519 40%, #0f172a 100%)', badge: '#be123c', stripe: 'linear-gradient(90deg,#be123c,#881337)', font: 'Montserrat', name: 'Template 07 – Crime', text: '#fff' },
+        8:  { bg: 'linear-gradient(160deg, #0a0e27 0%, #1e2a5e 40%, #0f172a 100%)', badge: '#1d4ed8', stripe: 'linear-gradient(90deg,#1d4ed8,#60a5fa)', font: 'Montserrat', name: 'Template 08 – International', text: '#fff' },
+        9:  { bg: 'linear-gradient(160deg, #052e16 0%, #14532d 40%, #0f172a 100%)', badge: '#15803d', stripe: 'linear-gradient(90deg,#15803d,#4ade80)', font: 'Poppins', name: 'Template 09 – Environment', text: '#fff' },
+        10: { bg: 'linear-gradient(160deg, #1a0533 0%, #4a1d96 40%, #0f172a 100%)', badge: '#7c3aed', stripe: 'linear-gradient(90deg,#7c3aed,#a78bfa)', font: 'Montserrat', name: 'Template 10 – Science', text: '#fff' },
+        11: { bg: 'linear-gradient(160deg, #001b30 0%, #0c4a6e 40%, #0f172a 100%)', badge: '#0891b2', stripe: 'linear-gradient(90deg,#0891b2,#67e8f9)', font: 'Montserrat', name: 'Template 11 – Technology', text: '#fff' },
+        12: { bg: 'linear-gradient(160deg, #2a0020 0%, #831843 40%, #0f172a 100%)', badge: '#db2777', stripe: 'linear-gradient(90deg,#db2777,#f9a8d4)', font: 'Montserrat', name: 'Template 12 – Entertainment', text: '#fff' },
+        13: { bg: 'linear-gradient(160deg, #001233 0%, #0c2d6e 40%, #0f172a 100%)', badge: '#2563eb', stripe: 'linear-gradient(90deg,#2563eb,#93c5fd)', font: 'Inter', name: 'Template 13 – Weather', text: '#fff' },
+        14: { bg: 'linear-gradient(160deg, #1a1000 0%, #78350f 40%, #0f172a 100%)', badge: '#b45309', stripe: 'linear-gradient(90deg,#b45309,#fcd34d)', font: 'Montserrat', name: 'Template 14 – Lifestyle', text: '#fff' },
+        15: { bg: 'linear-gradient(160deg, #111827 0%, #374151 40%, #0f172a 100%)', badge: '#64748b', stripe: 'linear-gradient(90deg,#64748b,#94a3b8)', font: 'Inter', name: 'Template 15 – Opinion', text: '#fff' },
+        16: { bg: 'linear-gradient(160deg, #0d0014 0%, #1e0036 40%, #0f172a 100%)', badge: '#9333ea', stripe: 'linear-gradient(90deg,#9333ea,#c084fc)', font: 'Archivo Black', name: 'Template 16 – Premium', text: '#fff' },
+    };
+
+    let currentTemplate = 1;
+    let imageDataURL = null;
+    const previewFrame = document.getElementById('previewFrame');
+    const scaleContainer = document.getElementById('scaleContainer');
+    const iframeWrap = document.getElementById('iframeWrap');
+
+    // ── Scale iframe to fit container ────────────────────────────────────────
+    function scalePreview() {
+        const w = scaleContainer.offsetWidth;
+        const scale = w / 1080;
+        previewFrame.style.transform = `scale(${scale})`;
+        previewFrame.style.width = '1080px';
+        previewFrame.style.height = '1350px';
+    }
+
+    window.addEventListener('resize', scalePreview);
+    setTimeout(scalePreview, 100);
+
+    // ── Pick random template ─────────────────────────────────────────────────
+    function pickRandom() {
+        return Math.floor(Math.random() * 16) + 1;
+    }
+
+    // ── Render preview ───────────────────────────────────────────────────────
+    function buildPreviewHTML(tplNum, imgDataUrl, headline, subtitle, source) {
+        const t = TEMPLATES[tplNum];
+        const imgCss = imgDataUrl ? `url("${imgDataUrl}")` : 'none';
+        const bgColor = imgDataUrl ? '#000' : t.bg;
+        const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+        return `<!DOCTYPE html><html><head>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Montserrat:wght@700;800;900&family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',sans-serif;}
+  html,body{width:1080px;height:1350px;overflow:hidden;}
+  .card{position:relative;width:1080px;height:1350px;overflow:hidden;
+    background-image:${imgCss};background-size:cover;background-position:center;
+    background-color:#111;display:flex;flex-direction:column;}
+  .overlay{position:absolute;inset:0;background:linear-gradient(to bottom,
+    rgba(0,0,0,.25) 0%,rgba(0,0,0,.02) 22%,rgba(0,0,0,.55) 44%,
+    rgba(0,0,0,.88) 65%,rgba(0,0,0,.97) 100%);z-index:1;}
+  .bg-fill{position:absolute;inset:0;background:${imgDataUrl ? 'none' : t.bg};z-index:0;}
+  .stripe{position:absolute;top:0;left:0;right:0;height:6px;background:${t.stripe};z-index:6;}
+  .top-bar{position:relative;z-index:5;display:flex;justify-content:space-between;
+    align-items:center;padding:52px 56px 0;}
+  .badge{display:inline-flex;align-items:center;gap:8px;background:${t.badge};
+    color:#fff;font-family:'Poppins',sans-serif;font-size:22px;font-weight:700;
+    letter-spacing:2px;text-transform:uppercase;padding:12px 28px;
+    border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.4);}
+  .badge::before{content:"";width:9px;height:9px;border-radius:50%;
+    background:#fff;display:inline-block;}
+  .logo-placeholder{width:48px;height:48px;border-radius:50%;
+    border:2px solid rgba(255,255,255,.3);background-color:rgba(255,255,255,.15);
+    background-image:url('${window.location.origin}/logo.png');background-size:cover;background-position:center;}
+  .spacer{flex:1;}
+  .content{position:relative;z-index:5;padding:48px 56px 44px;}
+  .headline{color:#fff;font-family:'Montserrat','Archivo Black',sans-serif;
+    font-size:${headline && headline.length > 60 ? '46px' : '54px'};font-weight:900;line-height:1.15;
+    text-shadow:0 4px 20px rgba(0,0,0,.6);margin-bottom:24px;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+  .description{color:rgba(255,255,255,.88);font-size:26px;font-weight:500;
+    line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;
+    -webkit-box-orient:vertical;overflow:hidden;}
+  .footer{position:relative;z-index:6;display:flex;align-items:center;
+    justify-content:space-between;padding:24px 56px;
+    background:linear-gradient(to top,rgba(0,0,0,.5),rgba(0,0,0,.1));
+    border-top:1px solid rgba(255,255,255,.1);}
+  .src{color:#fff;font-size:22px;font-weight:600;}
+  .dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.4);margin:0 12px;}
+  .date{color:rgba(255,255,255,.6);font-size:20px;}
+  .tag{color:#f0d060;font-size:20px;font-weight:600;}
+</style>
+</head><body>
+<div class="card">
+  <div class="bg-fill"></div>
+  <div class="overlay"></div>
+  <div class="stripe"></div>
+  <div class="top-bar">
+    <div class="badge">UPDATE</div>
+    <div class="logo-placeholder"></div>
+  </div>
+  <div class="spacer"></div>
+  <div class="content">
+    <div class="headline">${headline || 'Your headline will appear here...'}</div>
+    <div class="description">${subtitle || 'Your subtitle or description will appear here...'}</div>
+  </div>
+  <div class="footer">
+    <div style="display:flex;align-items:center">
+      <span class="src">${source || 'Nepal Central News'}</span>
+      <span class="dot"></span>
+      <span class="date">${today}</span>
+    </div>
+    <span class="tag">#NCN</span>
+  </div>
+</div>
+</body></html>`;
+    }
+
+    function updatePreview() {
+        const tpl = currentTemplate;
+        const html = buildPreviewHTML(
+            tpl,
+            imageDataURL,
+            document.getElementById('headline').value,
+            document.getElementById('subtitle').value,
+            document.getElementById('source').value
+        );
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const old = previewFrame.src;
+        previewFrame.src = url;
+        if (old && old.startsWith('blob:')) URL.revokeObjectURL(old);
+        setTimeout(scalePreview, 50);
+        document.getElementById('templateBadge').textContent = TEMPLATES[tpl]?.name || `Template ${String(tpl).padStart(2,'0')}`;
+    }
+
+    // ── Debounced live typing ────────────────────────────────────────────────
+    let debounceTimer = null;
+    function debouncedUpdate() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(updatePreview, 250);
+    }
+
+    ['headline', 'subtitle', 'source'].forEach(id => {
+        document.getElementById(id).addEventListener('input', debouncedUpdate);
+    });
+
+    // ── Template selector ────────────────────────────────────────────────────
+    document.getElementById('templateSelect').addEventListener('change', function() {
+        const val = parseInt(this.value);
+        if (val === 0) {
+            currentTemplate = pickRandom();
+            this.value = '0'; // keep showing "Random"
+        } else {
+            currentTemplate = val;
+        }
+        updatePreview();
+    });
+
+    document.getElementById('shuffleBtn').addEventListener('click', function() {
+        currentTemplate = pickRandom();
+        document.getElementById('templateSelect').value = '0';
+        updatePreview();
+        this.classList.add('clicked');
+        setTimeout(() => this.classList.remove('clicked'), 200);
+    });
+
+    // ── Image upload ─────────────────────────────────────────────────────────
+    document.getElementById('imageInput').addEventListener('change', function() {
+        const file = this.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            imageDataURL = e.target.result;
+            const thumb = document.getElementById('imgPreviewThumb');
+            thumb.src = imageDataURL;
+            thumb.style.display = 'block';
+            document.getElementById('uploadText').style.display = 'none';
+            document.querySelector('.upload-icon').style.display = 'none';
+            updatePreview();
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // ── Submit ────────────────────────────────────────────────────────────────
+    document.getElementById('submitBtn').addEventListener('click', async () => {
+        const file = document.getElementById('imageInput').files[0];
+        if (!file) { showAlert('Please upload an image first.', 'error'); return; }
+
+        const headline = document.getElementById('headline').value.trim();
+        if (!headline) { showAlert('Please enter a headline.', 'error'); return; }
+
+        const spinner = document.getElementById('spinner');
+        const btnText = document.getElementById('btnText');
+        const btn = document.getElementById('submitBtn');
+
+        btn.disabled = true;
+        spinner.style.display = 'block';
+        btnText.textContent = 'Rendering & Publishing...';
+        hideAlert();
+
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('headline', headline);
+        formData.append('subtitle', document.getElementById('subtitle').value);
+        formData.append('source', document.getElementById('source').value);
+        formData.append('caption', document.getElementById('caption').value);
+        formData.append('hashtags', document.getElementById('hashtags').value);
+        formData.append('template_index', currentTemplate);
+
+        try {
+            const res = await fetch('/post', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.success) {
+                showAlert('✅ Successfully published to Facebook! Post ID: ' + data.post_id, 'success');
+            } else {
+                showAlert('❌ Error: ' + data.error, 'error');
+            }
+        } catch (err) {
+            showAlert('❌ Network error: ' + err.message, 'error');
+        } finally {
+            btn.disabled = false;
+            spinner.style.display = 'none';
+            btnText.textContent = '🚀 Render & Publish to Facebook';
+        }
+    });
+
+    // ── Download Image Only ──────────────────────────────────────────────────
+    document.getElementById('downloadBtn').addEventListener('click', async () => {
+        const file = document.getElementById('imageInput').files[0];
+        if (!file) { showAlert('Please upload an image first.', 'error'); return; }
+
+        const headline = document.getElementById('headline').value.trim();
+        if (!headline) { showAlert('Please enter a headline.', 'error'); return; }
+
+        const spinner = document.getElementById('downloadSpinner');
+        const btnText = document.getElementById('downloadBtnText');
+        const btn = document.getElementById('downloadBtn');
+
+        btn.disabled = true;
+        spinner.style.display = 'block';
+        btnText.textContent = 'Generating Image...';
+        hideAlert();
+
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('headline', headline);
+        formData.append('subtitle', document.getElementById('subtitle').value);
+        formData.append('source', document.getElementById('source').value);
+        formData.append('template_index', currentTemplate);
+
+        try {
+            const res = await fetch('/download', { method: 'POST', body: formData });
+            
+            // Check if server returned a JSON error (status 200 but json content)
+            const contentType = res.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const data = await res.json();
+                throw new Error(data.error || 'Failed to generate image.');
+            }
+
+            if (!res.ok) {
+                throw new Error('Server returned an error.');
+            }
+            
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'NCN_Poster.jpg';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            
+            showAlert('✅ Image downloaded successfully!', 'success');
+        } catch (err) {
+            showAlert('❌ Error: ' + err.message, 'error');
+        } finally {
+            btn.disabled = false;
+            spinner.style.display = 'none';
+            btnText.textContent = '📥 Download Image Only';
+        }
+    });
+
+    function showAlert(msg, type) {
+        const el = document.getElementById('statusAlert');
+        el.textContent = msg;
+        el.className = 'alert ' + type;
+    }
+    function hideAlert() {
+        document.getElementById('statusAlert').className = 'alert';
+    }
+
+    // ── Init: pick random template and render empty preview ──────────────────
+    currentTemplate = pickRandom();
+    document.getElementById('templateSelect').value = '0';
+    updatePreview();
+</script>
+</body>
+</html>
