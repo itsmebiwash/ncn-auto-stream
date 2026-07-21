@@ -138,12 +138,7 @@
       "category": "Business",
       "article_selector": "h2 a, h3 a, .post-title a"
     },
-    {
-      "name": "Clickmandu",
-      "url": "https://clickmandu.com",
-      "category": "General",
-      "article_selector": "h2 a, h3 a"
-    },
+
     {
       "name": "Bizshala",
       "url": "https://bizshala.com",
@@ -280,6 +275,60 @@
       "name": "Jamarko",
       "url": "https://www.jamarko.com",
       "category": "General",
+      "article_selector": "h2 a, h3 a"
+    },
+    {
+      "name": "Livemint",
+      "url": "https://www.livemint.com",
+      "category": "International",
+      "article_selector": "h2 a, h3 a"
+    },
+    {
+      "name": "BBC",
+      "url": "https://www.bbc.com/news",
+      "category": "International",
+      "article_selector": "h2 a, h3 a"
+    },
+    {
+      "name": "AlJazeera",
+      "url": "https://www.aljazeera.com",
+      "category": "International",
+      "article_selector": "h2 a, h3 a"
+    },
+    {
+      "name": "TheGuardian",
+      "url": "https://www.theguardian.com/international",
+      "category": "International",
+      "article_selector": "h2 a, h3 a"
+    },
+    {
+      "name": "TheNewYorkTimes",
+      "url": "https://www.nytimes.com",
+      "category": "International",
+      "article_selector": "h2 a, h3 a"
+    },
+    {
+      "name": "Reuters",
+      "url": "https://www.reuters.com",
+      "category": "International",
+      "article_selector": "h2 a, h3 a"
+    },
+    {
+      "name": "TheTimesOfIndia",
+      "url": "https://timesofindia.indiatimes.com",
+      "category": "International",
+      "article_selector": "h2 a, h3 a"
+    },
+    {
+      "name": "TimeMagazine",
+      "url": "https://time.com",
+      "category": "International",
+      "article_selector": "h2 a, h3 a"
+    },
+    {
+      "name": "TheAtlantic",
+      "url": "https://www.theatlantic.com",
+      "category": "International",
       "article_selector": "h2 a, h3 a"
     }
   ]
