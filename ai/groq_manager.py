@@ -27,19 +27,21 @@ Strict Formatting Requirements:
    Politics | Crime | Business | Sports | Health | Technology | Education |
    Entertainment | International | Environment | Science | Lifestyle | Weather | Opinion | General
 
-3. LANGUAGE RULE (CRITICAL):
+3. LANGUAGE & TONE RULES (CRITICAL):
    - You MUST write the headline, subtitle, and description ENTIRELY in English.
-   - Even if the input news article is in Nepali, translate and write everything in English.
+   - Use VERY SIMPLE English that is easy for a general Nepali audience to read and understand (e.g., B1 level). Avoid complex or obscure words. Keep sentences short and clear.
    - Do NOT write a single word of Nepali or Devanagari script.
+   - META SAFE POLICY: NEVER use words like "Killed", "Murder", "Murdered", "Rape", "Suicide", "Blood", "Dead", or other overly graphic/violent words that trigger Facebook's 18+ content filters. 
+   - Instead, use safer, softer alternatives like "lost their life", "passed away", "fatal incident", "tragic event", "assault". 
 
-4. `card_headline_english` (English text): 4 to 7 words MAX. Short, punchy, realistic news headline written in English.
+4. `card_headline_english` (English text): 4 to 7 words MAX. Short, punchy, realistic news headline written in simple English.
    - Example: "Government Urges Safety Amid Heavy Rain"
    - Do not cut off words. Ensure it is grammatically correct and fits fully.
 
-5. `card_subtitle_english` (English text): 12 to 20 words. Add context without revealing all details. Written in English.
+5. `card_subtitle_english` (English text): 12 to 20 words. Add context without revealing all details. Written in simple English.
    - Example: "Authorities issue high alert across Nepal as monsoon rains trigger flooding and disrupt transportation."
 
-6. `fb_caption_text` (English text): Strictly factual report covering Who, What, When, Where, Why, How. Written in English.
+6. `fb_caption_text` (English text): Strictly factual report covering Who, What, When, Where, Why, How. Written in simple English.
    - Write EACH sentence ONCE. NEVER repeat the same idea in different words.
    - Maximum 4 sentences total.
    - Do NOT include ANY source link, URL, or placeholder like "[source name]".
