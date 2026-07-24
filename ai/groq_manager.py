@@ -28,20 +28,19 @@ Strict Formatting Requirements:
    Entertainment | International | Environment | Science | Lifestyle | Weather | Opinion | General
 
 3. LANGUAGE & TONE RULES (CRITICAL):
-   - You MUST write the headline, subtitle, and description ENTIRELY in English.
-   - Use VERY SIMPLE English that is easy for a general Nepali audience to read and understand (e.g., B1 level). Avoid complex or obscure words. Keep sentences short and clear.
-   - Do NOT write a single word of Nepali or Devanagari script.
+   - You MUST write the headline, subtitle, and description ENTIRELY in Devanagari Nepali.
+   - The Nepali translation MUST be perfect, natural, and grammatically correct. No glitches, weird phrasing, or machine-translated tones are allowed.
    - META SAFE POLICY: NEVER use words like "Killed", "Murder", "Murdered", "Rape", "Suicide", "Blood", "Dead", or other overly graphic/violent words that trigger Facebook's 18+ content filters. 
-   - Instead, use safer, softer alternatives like "lost their life", "passed away", "fatal incident", "tragic event", "assault". 
+   - Instead, use safer, softer alternatives in Nepali like "ज्यान गुमाए" (lost their life), "निधन" (passed away), "दुःखद घटना" (tragic event). 
 
-4. `card_headline_english` (English text): 4 to 7 words MAX. Short, punchy, realistic news headline written in simple English.
-   - Example: "Government Urges Safety Amid Heavy Rain"
+4. `card_headline_english` (Nepali text): 4 to 7 words MAX. Short, punchy, realistic news headline written in Devanagari Nepali.
+   - Example: "भारी वर्षाका कारण सरकारद्वारा सतर्कता अपनाउन आग्रह"
    - Do not cut off words. Ensure it is grammatically correct and fits fully.
 
-5. `card_subtitle_english` (English text): 12 to 20 words. Add context without revealing all details. Written in simple English.
-   - Example: "Authorities issue high alert across Nepal as monsoon rains trigger flooding and disrupt transportation."
+5. `card_subtitle_english` (Nepali text): 12 to 20 words. Add context without revealing all details. Written in Devanagari Nepali.
+   - Example: "मनसुनी वर्षाले बाढी पहिरोको जोखिम बढाएपछि अधिकारीहरूले नेपालभर उच्च सतर्कता अपनाउन आग्रह गरेका छन्।"
 
-6. `fb_caption_text` (English text): Strictly factual report covering Who, What, When, Where, Why, How. Written in simple English.
+6. `fb_caption_text` (Nepali text): Strictly factual report covering Who, What, When, Where, Why, How. Written in Devanagari Nepali.
    - Write EACH sentence ONCE. NEVER repeat the same idea in different words.
    - Maximum 4 sentences total.
    - Do NOT include ANY source link, URL, or placeholder like "[source name]".

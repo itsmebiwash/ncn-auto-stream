@@ -31,6 +31,8 @@ from scrapers.nepali_scraper import (
 )
 from facebook.publisher import post_to_facebook
 from facebook.reels_publisher import post_reel_to_facebook
+from facebook.trust_engine import TrustEngine
+from ai.trend_analyzer import TrendAnalyzer
 from utils.reel_generator import generate_news_reel
 from utils.heartbeat import record_laptop_heartbeat, is_laptop_active
 from utils.cleanup import run_cleanup
@@ -40,8 +42,10 @@ from utils.logger import log_feedback
 SLOT_DURATION   = 240    # 4 minutes per news item (image + reel + sleep)
 REEL_POST_DELAY = 15     # seconds after image post before reel goes up
 TOP_N           = 15     # articles per posting cycle
+DEFAULT_TOP_N   = 15     # max articles per cycle (used by Trust Engine cap)
 CYCLE_MINUTES   = 60     # total cycle window in minutes
 BUFFER_SECONDS  = 300    # 5 min buffer before next scrape
+FORCE_POST      = False  # Set True for emergency breaking-news override
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -93,6 +97,47 @@ def _mark_requeue(db, article):
         )
     except Exception as e:
         print(f'  [DB Error] Failed to requeue: {e}')
+
+
+def apply_trend_boosts():
+    """
+    Queries TrendAnalyzer for AI-detected trending topics (cached 24h),
+    then adds +2.0 to the priority_score of matching queued/text_scored articles.
+    This ensures trending content always rises to the top of the posting queue.
+    """
+    try:
+        analyzer = TrendAnalyzer()
+        trends = analyzer.analyze_current_trends()
+        if not trends:
+            return
+
+        db = get_db()
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        articles = list(db.articles.find({
+            'status': {'$in': ['text_scored', 'queued']},
+            'created_at': {'$gte': cutoff},
+            'trend_boosted': {'$ne': True}
+        }))
+
+        boost_count = 0
+        for art in articles:
+            text = (
+                str(art.get('original_title', '')) + ' ' +
+                str(art.get('english_headline', '')) + ' ' +
+                str(art.get('category', ''))
+            ).lower()
+            if any(t.lower() in text for t in trends):
+                new_score = min(10.0, float(art.get('priority_score', 5.0)) + 2.0)
+                db.articles.update_one(
+                    {'_id': art['_id']},
+                    {'$set': {'priority_score': new_score, 'trend_boosted': True}}
+                )
+                boost_count += 1
+
+        if boost_count > 0:
+            print(f'[Trend Engine] Boosted {boost_count} articles based on AI trends: {trends}')
+    except Exception as e:
+        print(f'[Trend Engine] Error applying boosts: {e}')
 
 
 def _post_pre_rendered_reel(article):
@@ -318,6 +363,9 @@ def run_batch_schedule():
         print('\n[Phase 1] Scraping & scoring all sources...')
         scrape_and_score_all()
 
+        print('\n[AI Curation] Applying trend boosts based on past engagement...')
+        apply_trend_boosts()
+
         t_after_phase1 = time.time() - t0
         remaining_min = 28 - (t_after_phase1 / 60)
         print(f'[Phase 1] Done in {t_after_phase1/60:.1f} min. ~{remaining_min:.1f} min remaining.')
@@ -325,28 +373,59 @@ def run_batch_schedule():
         # Only render if we have at least 8 minutes left (each image takes ~30s)
         if remaining_min >= 8:
             print('\n[Phase 2] Rendering images for top 15 articles...')
-            render_images_for_top_n(TOP_N)
+            render_images_for_top_n(DEFAULT_TOP_N)
             t_scrape = time.time() - t0
             print(f'[Scraper] Total scrape+render time: {t_scrape/60:.1f} minutes')
         else:
             print(f'[Phase 2] SKIPPED — only {remaining_min:.1f} min left, not enough for rendering.')
 
-    # ── Phase 3: POST — this is the most important part ──
+    # ── Phase 3: POST — Trust Engine controls volume ──────────────────────────
     elapsed_before_post = time.time() - t0
     print(f'\n[Phase 3] Starting posting. {28 - elapsed_before_post/60:.1f} min budget remaining.')
+
+    # Determine page health and how many posts to publish this cycle
+    trust_engine = TrustEngine()
+    if FORCE_POST:
+        state, cycle_limit, skip_links = 'EMERGENCY_OVERRIDE', DEFAULT_TOP_N, False
+    else:
+        state, cycle_limit, skip_links = trust_engine.evaluate_page_health()
+    print(f'[Trust Engine] State={state} | Posts allowed={cycle_limit} | Skip links={skip_links}')
 
     top_articles = get_top_15_queued()
     if not top_articles:
         print('[Phase 3] No articles ready to post. Exiting.')
         return
 
-    print(f'[Phase 3] {len(top_articles)} articles ready. Posting now...')
+    # Filter link-heavy posts when recovering/shadowbanned
+    if skip_links:
+        top_articles = [a for a in top_articles if 'http' not in str(a.get('original_content', ''))]
+
+    approved_articles = top_articles[:cycle_limit]
+    dropped_articles  = top_articles[cycle_limit:]
+
+    # Archive excess articles — prevent queue clogging
+    db = get_db()
+    for drop in dropped_articles:
+        try:
+            db.articles.update_one(
+                {'_id': drop['_id']},
+                {'$set': {'status': 'archived_trust_drop', 'updated_at': datetime.now(timezone.utc)}}
+            )
+        except Exception:
+            pass
+
+    print(f'[Phase 3] {len(approved_articles)} approved (archived {len(dropped_articles)}).')
+
+    # Spread posts evenly across remaining GitHub Actions budget (min 60s gap between posts)
+    remaining_budget_sec = max(60, (25 * 60) - elapsed_before_post)
+    dynamic_slot = max(60, remaining_budget_sec / max(1, len(approved_articles)))
+    print(f'[Phase 3] Dynamic slot = {dynamic_slot:.0f}s per post to avoid spam.')
 
     posted_count = 0
-    for i, article in enumerate(top_articles, 1):
+    for i, article in enumerate(approved_articles, 1):
         elapsed = time.time() - t0
         if elapsed > 25 * 60:
-            print(f'[GitHub] Approaching 28-min timeout after {elapsed/60:.1f} min. Stopping gracefully.')
+            print(f'[GitHub] Approaching 28-min timeout. Stopping gracefully.')
             break
 
         db = get_db()
@@ -359,12 +438,22 @@ def run_batch_schedule():
             print(f'[DB Error] Could not mark processing: {e}')
             time.sleep(3)
             continue
-        success, result = process_article_slot(article, i, len(top_articles), db)
+
+        slot_t = time.time()
+        success, result = process_article_slot(article, i, len(approved_articles), db)
         if result == 'rate_limit':
             print('[!] Rate limit hit. Waiting 5 min before next article.')
             time.sleep(300)
         if success:
             posted_count += 1
+
+        # Pace out posts — only sleep between posts, not after the last one
+        if i < len(approved_articles):
+            elapsed_slot = time.time() - slot_t
+            sleep_for = max(0, dynamic_slot - elapsed_slot)
+            if sleep_for > 0:
+                print(f'  [Pacing] Sleeping {sleep_for:.0f}s before next post...')
+                time.sleep(sleep_for)
 
     print(f'\n[Done] Batch complete. Published {posted_count} news items.')
 
@@ -372,14 +461,14 @@ def run_batch_schedule():
 # ── Continuous local mode (laptop always-on) ──────────────────────────────────
 def run_continuous_mode():
     """
-    Resilient continuous loop:
-      - Smart-skip Phase 1 if 15+ articles already queued
-      - Posts top-15 on 240s slots
+    Resilient continuous loop (local/laptop mode):
+      - Trust Engine decides how many posts per cycle based on page health
+      - AI Trend Analyzer boosts articles matching trending topics
       - Auto-restarts on any unhandled exception (60s cooldown)
       - Heartbeat recorded every slot so GitHub Actions detects laptop is active
     """
     print('[Continuous] Nepal Central News automation (local mode).')
-    print(f'[Continuous] Cycle: {TOP_N} articles x 4 min = 60 min per cycle.\n')
+    print(f'[Continuous] Trust Engine will set post volume per cycle (max {DEFAULT_TOP_N}).\n')
     init_db()
 
     while True:
@@ -388,10 +477,9 @@ def run_continuous_mode():
             run_cleanup()
 
             cycle_start = time.time()
-            print(f'\n[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] '
-                  f'Starting scrape+score cycle...')
+            print(f'\n[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Starting cycle...')
 
-            # Smart skip: if 15+ articles queued already, jump straight to posting
+            # Smart skip: if 15+ articles queued already, skip scrape
             _db = get_db()
             _cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
             _already_queued = _db.articles.count_documents(
@@ -399,17 +487,26 @@ def run_continuous_mode():
             if _already_queued >= 15:
                 print(f'[Phase 1] Skipping scrape — {_already_queued} articles already queued.')
             else:
-                print('[Phase 1] Scraping & scoring all sources (text only)...')
+                print('[Phase 1] Scraping & scoring all sources...')
                 scrape_and_score_all()
 
-            # Phase 2: Render top-15 images
-            print('[Phase 2] Rendering images for top 15 articles...')
-            render_images_for_top_n(TOP_N)
+                print('\n[AI Curation] Applying trend boosts...')
+                apply_trend_boosts()
+
+            # Phase 2: Render images
+            print('[Phase 2] Rendering images for top articles...')
+            render_images_for_top_n(DEFAULT_TOP_N)
             print(f'[Scraper] Took {(time.time()-cycle_start)/60:.1f} min.')
 
-            # Phase 3: Post top-15 on 240s slots
-            top_articles = get_top_15_queued()
+            # ── Phase 3: Trust Engine controls volume ─────────────────────────
+            trust_engine = TrustEngine()
+            if FORCE_POST:
+                state, cycle_limit, skip_links = 'EMERGENCY_OVERRIDE', DEFAULT_TOP_N, False
+            else:
+                state, cycle_limit, skip_links = trust_engine.evaluate_page_health()
+            print(f'[Trust Engine] State={state} | Posts allowed={cycle_limit} | Skip links={skip_links}')
 
+            top_articles = get_top_15_queued()
             if not top_articles:
                 print('[Queue] No articles ready. Re-scraping in 10 minutes.')
                 for _ in range(10):
@@ -417,33 +514,60 @@ def run_continuous_mode():
                     time.sleep(60)
                 continue
 
-            print(f'[Queue] {len(top_articles)} articles ready. '
-                  f'Starting 4-min slot schedule...\n')
+            # Filter links if recovering
+            if skip_links:
+                top_articles = [a for a in top_articles if 'http' not in str(a.get('original_content', ''))]
 
-            for i, article in enumerate(top_articles, 1):
+            approved_articles = top_articles[:cycle_limit]
+            dropped_articles  = top_articles[cycle_limit:]
+
+            db = get_db()
+            for drop in dropped_articles:
+                try:
+                    db.articles.update_one(
+                        {'_id': drop['_id']},
+                        {'$set': {'status': 'archived_trust_drop', 'updated_at': datetime.now(timezone.utc)}}
+                    )
+                except Exception:
+                    pass
+
+            # Dynamic slot: fill remaining cycle time evenly (min 240s for local)
+            elapsed_so_far = time.time() - cycle_start
+            remaining_cycle = (CYCLE_MINUTES * 60) - elapsed_so_far
+            dynamic_slot = max(240, remaining_cycle / max(1, len(approved_articles)))
+            print(f'[Queue] {len(approved_articles)} articles approved (archived {len(dropped_articles)}). '
+                  f'Slot duration: {dynamic_slot:.0f}s.\n')
+
+            for i, article in enumerate(approved_articles, 1):
                 record_laptop_heartbeat()
-                db = get_db()  # fresh DB ref each slot — picks up any reconnect
+                db = get_db()
 
                 try:
                     db.articles.update_one(
                         {'_id': article['_id'], 'status': 'queued'},
-                        {'$set': {'status': 'processing',
-                                  'updated_at': datetime.now(timezone.utc)}}
+                        {'$set': {'status': 'processing', 'updated_at': datetime.now(timezone.utc)}}
                     )
                 except Exception as e:
                     print(f'[DB Error] Failed to mark processing: {e}')
                     time.sleep(5)
                     continue
 
-                success, result = process_article_slot(
-                    article, i, len(top_articles), db)
+                slot_t = time.time()
+                success, result = process_article_slot(article, i, len(approved_articles), db)
 
                 if result == 'rate_limit':
                     print('[!] Rate limit. Pausing 5 min before next article.')
                     time.sleep(300)
 
-            print(f'\n[Cycle complete] Restarting cycle immediately...')
-            # Smart-skip logic at top of loop handles whether to scrape or not
+                # Sleep for remaining dynamic slot (only between posts)
+                if i < len(approved_articles):
+                    elapsed_slot = time.time() - slot_t
+                    sleep_for = max(0, dynamic_slot - elapsed_slot)
+                    if sleep_for > 0:
+                        print(f'  [Pacing] Sleeping {sleep_for:.0f}s before next post...')
+                        time.sleep(sleep_for)
+
+            print(f'\n[Cycle complete] Restarting cycle...')
 
         except KeyboardInterrupt:
             print('\n[Stopping] Keyboard interrupt. Exiting.')
